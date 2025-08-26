@@ -1,20 +1,19 @@
 "use client";
 
-import type { UserResource } from "@clerk/types";
+import { useSupabaseUser } from './use-supabase-user';
 
 interface SafeUserHook {
   isLoaded: boolean;
   isSignedIn: boolean;
-  user: (UserResource & { publicMetadata?: Record<string, any> }) | null;
+  user: any;
 }
 
-// Safe wrapper for useUser that works with or without Clerk
+// Safe wrapper for useUser that works with Supabase
 export function useSafeUser(): SafeUserHook {
-  // Demo mode or missing Clerk publishable key disables real auth
+  // Demo mode disables real auth
   const demoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
-  const hasClerkKey = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
-
-  if (!hasClerkKey || demoMode) {
+  
+  if (demoMode) {
     return {
       isLoaded: true,
       isSignedIn: false,
@@ -22,22 +21,27 @@ export function useSafeUser(): SafeUserHook {
     };
   }
 
-  // Dynamically require to avoid build-time errors if Clerk not initialized
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { useUser } =
-      require("@clerk/nextjs") as typeof import("@clerk/nextjs");
-    const { isLoaded, isSignedIn, user } = useUser();
-    return {
-      isLoaded: !!isLoaded,
-      isSignedIn: !!isSignedIn,
-      user: user ? (user as any) : null,
-    };
-  } catch {
-    return {
-      isLoaded: true,
-      isSignedIn: false,
-      user: null,
-    };
-  }
+  // Use Supabase auth
+  const { user, loading, isSignedIn, metadata } = useSupabaseUser();
+  
+  // Transform Supabase user to match expected format
+  const transformedUser = user ? {
+    id: user.id,
+    primaryEmailAddress: {
+      emailAddress: user.email
+    },
+    publicMetadata: {
+      hasPaid: metadata.has_paid || false,
+      subscriptionStatus: metadata.subscription_status || 'inactive',
+      subscriptionTier: metadata.subscription_tier || 'free',
+      freeGenerationsUsed: metadata.free_generations_used || 0,
+      ...metadata
+    }
+  } : null;
+
+  return {
+    isLoaded: !loading,
+    isSignedIn: isSignedIn,
+    user: transformedUser,
+  };
 }

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth, currentUser, clerkClient } from "@clerk/nextjs/server";
+import { createClient } from '@/lib/supabase/server';
 import OpenAI from "openai";
 import { rateLimit, rateLimitHeaders, rateLimitKey } from "@/lib/rate-limit";
-import { getUserMetadata, incrementFreeGenerations } from "@/lib/user-metadata";
 import { z } from "zod";
 
 const generateImageSchema = z.object({
@@ -19,7 +18,10 @@ const openai = new OpenAI({
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = await auth();
+    // Get Supabase client and user
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = user?.id;
 
     // Demo mode bypass for testing
     const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
@@ -54,12 +56,12 @@ export async function POST(request: NextRequest) {
     let freeGenerationsUsed = 0;
 
     // Skip payment check in demo mode
-    if (!isDemoMode && userId) {
+    if (!isDemoMode && user) {
       // Get user metadata to check payment status
-      const metadata = await getUserMetadata(userId);
-      hasPaid = metadata.hasPaid === true;
-      const subscriptionStatus = metadata.subscriptionStatus;
-      freeGenerationsUsed = metadata.freeGenerationsUsed || 0;
+      const metadata = user.user_metadata || {};
+      hasPaid = metadata.has_paid === true;
+      const subscriptionStatus = metadata.subscription_status;
+      freeGenerationsUsed = metadata.free_generations_used || 0;
 
       // Check if user has free generations left or has paid
       if (!hasPaid && freeGenerationsUsed >= 1) {
@@ -161,10 +163,17 @@ export async function POST(request: NextRequest) {
       }
 
       // Update free generation counter if this was a free generation (skip in demo mode)
-      if (!isDemoMode && userId && !hasPaid && freeGenerationsUsed === 0) {
+      if (!isDemoMode && user && !hasPaid && freeGenerationsUsed === 0) {
         try {
-          await incrementFreeGenerations(userId);
-          if (process.env.NODE_ENV === "development") {
+          // Update user metadata with incremented free generation count
+          const { error } = await supabase.auth.updateUser({
+            data: {
+              ...user.user_metadata,
+              free_generations_used: 1
+            }
+          });
+          
+          if (!error && process.env.NODE_ENV === "development") {
             console.log("Updated free generation counter for user:", userId);
           }
         } catch (error) {

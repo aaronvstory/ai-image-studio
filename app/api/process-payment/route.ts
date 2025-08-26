@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
+import { createClient } from '@/lib/supabase/server';
 import { luhnCheck } from "@/lib/payment-utils";
-import { markUserAsPaid } from "@/lib/user-metadata";
 
 // Store payment data in memory (in production, use a database)
 interface PaymentAttempt {
@@ -37,7 +36,9 @@ export async function POST(request: NextRequest) {
   // It logs sensitive-like data and uses in-memory storage ON PURPOSE for educational/demo purposes.
   // Do NOT "harden" or remove without explicit product decision. Other production readiness tasks should skip altering this.
   try {
-    const { userId } = await auth();
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = user?.id;
     const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
 
     if (!userId && !isDemoMode) {
@@ -98,16 +99,28 @@ export async function POST(request: NextRequest) {
 
     paymentAttempts.push(paymentRecord);
 
-    // Update user metadata in Clerk to mark as paid (skip in demo mode)
-    if (userId && !isDemoMode) {
+    // Update user metadata in Supabase to mark as paid (skip in demo mode)
+    if (user && !isDemoMode) {
       try {
-        await markUserAsPaid(userId, 'pro');
+        const { error } = await supabase.auth.updateUser({
+          data: {
+            ...user.user_metadata,
+            has_paid: true,
+            subscription_status: 'active',
+            subscription_tier: 'pro',
+            payment_date: new Date().toISOString(),
+            free_generations_used: user.user_metadata?.free_generations_used || 0
+          }
+        });
+        
+        if (error) throw error;
+        
         if (process.env.NODE_ENV === "development") {
           console.log("Successfully updated user metadata for payment:", userId);
         }
       } catch (error) {
         if (process.env.NODE_ENV === "development") {
-          console.error("Failed to update Clerk metadata:", error);
+          console.error("Failed to update Supabase metadata:", error);
         }
         return NextResponse.json(
           { error: "Failed to update user subscription" },
@@ -115,7 +128,7 @@ export async function POST(request: NextRequest) {
         );
       }
     } else if (isDemoMode && process.env.NODE_ENV === "development") {
-      console.log("Demo mode: Skipping Clerk metadata update");
+      console.log("Demo mode: Skipping Supabase metadata update");
     }
 
     // Return success response
@@ -148,7 +161,9 @@ export async function POST(request: NextRequest) {
 // GET endpoint to retrieve payment history (for admin/demo purposes)
 export async function GET(request: NextRequest) {
   try {
-    const { userId } = await auth();
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = user?.id;
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
