@@ -12,9 +12,9 @@ const generateImageSchema = z.object({
   style: z.string().optional(),
 });
 
-// Initialize OpenAI client
+// Initialize OpenAI client with fallback for build time
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY || 'placeholder-for-build',
 });
 
 export async function POST(request: NextRequest) {

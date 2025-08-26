@@ -5,6 +5,7 @@ import { ClerkProvider } from '@clerk/nextjs'
 import { ThemeProvider } from "@/components/theme-provider";
 import { CheckoutModalProvider } from '@/components/checkout-modal-provider'
 import { ErrorBoundary } from '@/components/error-boundary'
+import { Analytics } from '@vercel/analytics/next'
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -43,6 +44,7 @@ export default function RootLayout({
             <CheckoutModalProvider>
               <ErrorBoundary>
                 {children}
+                <Analytics />
               </ErrorBoundary>
             </CheckoutModalProvider>
           </ThemeProvider>
@@ -65,6 +67,7 @@ export default function RootLayout({
             <CheckoutModalProvider>
               <ErrorBoundary>
                 {children}
+                <Analytics />
               </ErrorBoundary>
             </CheckoutModalProvider>
           </ThemeProvider>

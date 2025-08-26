@@ -6,14 +6,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 AI-powered image generation SaaS using OpenAI's DALL-E 3. Built with Next.js 15.3.5, Clerk authentication, TypeScript 5, and shadcn/ui v4. Features payment gating with demo checkout and runs exclusively on port 3500.
 
+## 🚀 Deployment Platform: VERCEL (Required)
+
+**CRITICAL**: This app MUST be deployed to Vercel, not Netlify. Clerk does not support .netlify.app domains for production instances but fully supports .vercel.app domains.
+
+### Deployment Status
+- **Platform**: Vercel (FREE tier)
+- **URL Format**: `https://your-app-name.vercel.app`
+- **Auto-Deploy**: Connected to GitHub main branch
+- **Demo Mode**: Available as fallback when Clerk not configured
+
 ### 🚀 Current Implementation Status
-- ⚠️ **Clerk Authentication**: Configured with provided keys (pk_test_YOUR_PUBLISHABLE_KEY_HERE)
-- ✅ **Clerk App Router Setup**: Using clerkMiddleware() in middleware.ts
-- ✅ **ClerkProvider**: Properly wrapping app in layout.tsx
-- ✅ **Authentication Pages**: SignIn/SignUp components at `/sign-in` and `/sign-up`
-- ✅ **Environment Variables**: All Clerk env vars configured including FAPI
-- ⚠️ **Current Issue**: Clerk fails to initialize (configuration needed)
-- 📚 **Full Documentation**: Refer to Clerk documentation for setup details
+- ✅ **Supabase Authentication**: Migrated from Clerk (works on ANY domain!)
+- ✅ **Auth Pages**: Custom auth pages at `/auth/login` and `/auth/signup`
+- ✅ **Middleware Setup**: Using Supabase middleware for session management
+- ✅ **Demo Mode**: `NEXT_PUBLIC_DEMO_MODE=true` bypasses auth entirely
+- ✅ **Build Optimized**: Placeholder values prevent build errors
+- ✅ **Domain Flexibility**: Works on .netlify.app, .vercel.app, any custom domain
+- 📚 **Why Supabase**: Clerk doesn't support .netlify.app domains, Supabase has no restrictions
 
 ## Critical Process Management
 
@@ -37,6 +47,10 @@ npm run dev:3500      # Alternative command
 # Production
 npm run build         # Build for production  
 npm run start         # Start production server on :3500
+
+# DEPLOYMENT TO VERCEL (Required for production)
+npx vercel            # Deploy preview
+npx vercel --prod     # Deploy production
 
 # Code Quality
 npm run lint          # ESLint

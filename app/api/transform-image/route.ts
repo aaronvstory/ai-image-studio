@@ -11,9 +11,9 @@ const transformSchema = z.object({
   style: z.string().max(120).optional(),
 });
 
-// Initialize OpenAI client
+// Initialize OpenAI client with fallback for build time
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY || 'placeholder-for-build',
 });
 
 // Track free tier usage

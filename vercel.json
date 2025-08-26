@@ -1,0 +1,23 @@
+{
+  "version": 2,
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "build": {
+    "env": {
+      "NEXT_TELEMETRY_DISABLED": "1"
+    }
+  },
+  "functions": {
+    "app/api/generate-image/route.ts": {
+      "maxDuration": 30
+    },
+    "app/api/process-payment/route.ts": {
+      "maxDuration": 10
+    },
+    "app/api/transform-image/route.ts": {
+      "maxDuration": 10
+    }
+  },
+  "regions": ["iad1"]
+}
