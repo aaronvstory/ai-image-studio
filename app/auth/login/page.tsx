@@ -25,16 +25,22 @@ export default function LoginPage() {
     setError(null)
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      // Use server-side auth API to bypass browser CORS issues
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
       })
 
-      if (error) {
-        console.error('Login error:', error)
-        setError(error.message)
+      const data = await response.json()
+
+      if (!response.ok) {
+        console.error('Login error:', data.error)
+        setError(data.error || 'Login failed')
         setLoading(false)
-      } else if (data.user) {
+      } else {
         // Successful login
         router.push('/dashboard')
         router.refresh()

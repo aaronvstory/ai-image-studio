@@ -39,38 +39,28 @@ export default function SignUpPage() {
     }
 
     try {
-      const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          free_generations_used: 0,
-          has_paid: false,
-          subscription_status: 'inactive',
-        }
-      }
+      // Use server-side auth API to bypass browser CORS issues
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
       })
 
-      if (error) {
-        console.error('Signup error:', error)
-        setError(error.message)
+      const data = await response.json()
+
+      if (!response.ok) {
+        console.error('Signup error:', data.error)
+        setError(data.error || 'Signup failed')
         setLoading(false)
-      } else if (data.user) {
+      } else {
         setSuccess(true)
-        // Auto sign in after signup
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        })
-        
-        if (!signInError) {
-          setTimeout(() => {
-            router.push('/dashboard')
-            router.refresh()
-          }, 1500)
-        } else {
-          console.error('Auto sign-in error:', signInError)
-        }
+        // Redirect to dashboard after successful signup
+        setTimeout(() => {
+          router.push('/dashboard')
+          router.refresh()
+        }, 1500)
       }
     } catch (err: any) {
       console.error('Unexpected error during signup:', err)
