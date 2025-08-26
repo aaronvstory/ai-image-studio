@@ -20,4 +20,5 @@
 
 [functions]
   node_bundler = "esbuild"
-  included_files = ["**/*"]
+  # Don't include everything - let Netlify handle dependencies automatically
+  # This prevents including node_modules and other large unnecessary files
