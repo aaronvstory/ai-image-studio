@@ -38,7 +38,8 @@ export default function SignUpPage() {
       return
     }
 
-    const { data, error } = await supabase.auth.signUp({
+    try {
+      const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -48,25 +49,33 @@ export default function SignUpPage() {
           subscription_status: 'inactive',
         }
       }
-    })
-
-    if (error) {
-      setError(error.message)
-      setLoading(false)
-    } else if (data.user) {
-      setSuccess(true)
-      // Auto sign in after signup
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
       })
-      
-      if (!signInError) {
-        setTimeout(() => {
-          router.push('/dashboard')
-          router.refresh()
-        }, 1500)
+
+      if (error) {
+        console.error('Signup error:', error)
+        setError(error.message)
+        setLoading(false)
+      } else if (data.user) {
+        setSuccess(true)
+        // Auto sign in after signup
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        })
+        
+        if (!signInError) {
+          setTimeout(() => {
+            router.push('/dashboard')
+            router.refresh()
+          }, 1500)
+        } else {
+          console.error('Auto sign-in error:', signInError)
+        }
       }
+    } catch (err: any) {
+      console.error('Unexpected error during signup:', err)
+      setError(err?.message || 'An unexpected error occurred. Please try again.')
+      setLoading(false)
     }
   }
 
