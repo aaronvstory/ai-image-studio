@@ -3,7 +3,7 @@ const https = require('https');
 
 // Keys from user's message
 const SUPABASE_URL = 'https://ytdhhklpsanghxouspkr.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0ZGhoa2xwc2FuZ2h4b3VzcGtyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzUzNTc0NTAsImV4cCI6MjA1MDkzMzQ1MH0.LSzUI81uLbGuol_FProv0Q_wayt3t9Er8HiTCLy-ViM';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0ZGhoa2xwc2FuZ2h4b3VzcGtyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYyMzY0NjYsImV4cCI6MjA3MTgxMjQ2Nn0.PZoeqfctFH9XLfeuhK3TMPKI92JchJfRRSwL8Q4mqkQ';
 
 console.log('Testing Supabase connection...\n');
 console.log('URL:', SUPABASE_URL);
