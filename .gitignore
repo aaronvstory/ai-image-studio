@@ -119,3 +119,10 @@ app/test-clerk/
 # Sensitive documentation and serena cache
 .serena/
 docs/
+
+# User-specific Claude configuration
+.claude/
+
+# Test artifacts
+screenshots/
+test-screenshots/

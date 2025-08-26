@@ -2,8 +2,8 @@ import { test, expect } from '@playwright/test'
 
 // Test configuration
 const BASE_URL = 'http://localhost:3500'
-const CLERK_SIGN_UP_URL = 'https://meet-coyote-2.accounts.dev/sign-up'
-const CLERK_SIGN_IN_URL = 'https://meet-coyote-2.accounts.dev/sign-in'
+const CLERK_SIGN_UP_URL = 'https://your-clerk-instance.accounts.dev/sign-up'
+const CLERK_SIGN_IN_URL = 'https://your-clerk-instance.accounts.dev/sign-in'
 
 // Test credentials (use unique email for each test run)
 const testEmail = `test-${Date.now()}@example.com`
@@ -132,7 +132,7 @@ test.describe('Seamless Authentication Flow', () => {
     await page.goto(`${BASE_URL}/sign-in`)
     
     // Use demo credentials
-    await page.fill('input[name="identifier"]', 'rookies-horror1r@icloud.com')
+    await page.fill('input[name="identifier"]', 'demo@example.com')
     await page.fill('input[name="password"]', 'demo123')
     
     // Submit sign-in
