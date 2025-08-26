@@ -5,11 +5,10 @@
 [build.environment]
   NODE_VERSION = "20"
   NEXT_TELEMETRY_DISABLED = "1"
-  SECRETS_SCAN_ENABLED = "false"
-  # Ignore false positive secrets detection for redirect URLs
-  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL,NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL,NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL,NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL"
-  # Skip scanning of build artifacts and documentation
-  SECRETS_SCAN_OMIT_PATHS = ".netlify/**,test-results/**,playwright-report/**,docs/**,.env.example,app/test-clerk/**"
+  # Add ALL the env var names that are causing false positives
+  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL,NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL,NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL,NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL,NEXT_PUBLIC_CLERK_FAPI,CLERK_SECRET_KEY,NEXT_PUBLIC_CLERK_SIGN_UP_URL,NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,NEXT_PUBLIC_CLERK_SIGN_IN_URL,RATE_LIMIT_WINDOW_MS,PORT"
+  # Skip scanning of build artifacts, caches, and test files
+  SECRETS_SCAN_OMIT_PATHS = ".netlify/**,.next/**,test-results/**,playwright-report/**,docs/**,.env.example,app/test-clerk/**,.serena/**,tests/**,*.md"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
