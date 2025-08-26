@@ -98,3 +98,20 @@ cleanup-report.txt
 
 # clerk configuration (can include secrets)
 /.clerk/
+
+# Netlify deployment
+.netlify/
+test-results/
+playwright-report/
+app/test-clerk/
+
+# Development and testing
+*.log
+*.tmp
+.env.local
+.env.production.local
+
+# Additional cleanup patterns
+*_debug.txt
+*_test.log
+*.backup

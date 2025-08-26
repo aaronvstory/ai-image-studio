@@ -97,14 +97,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log("=== IMAGE TRANSFORMATION REQUEST ===");
-    console.log("Mode:", mode);
-    console.log("Style:", style);
-    console.log("Has Image:", !!image);
-    console.log("Prompt:", prompt);
-    console.log("User ID:", userId || "Anonymous");
-    console.log("Has Paid:", hasPaid);
-    console.log("====================================");
+    if (process.env.NODE_ENV === "development") {
+      console.log("=== IMAGE TRANSFORMATION REQUEST ===");
+      console.log("Mode:", mode);
+      console.log("Style:", style);
+      console.log("Has Image:", !!image);
+      console.log("Prompt:", prompt?.substring(0, 50) + "...");
+      console.log("User ID:", userId || "Anonymous");
+      console.log("Has Paid:", hasPaid);
+      console.log("====================================");
+    }
 
     let finalPrompt: string = prompt || "";
 
@@ -137,14 +139,18 @@ export async function POST(request: NextRequest) {
 
         const imageDescription =
           visionResponse.choices[0]?.message?.content || "";
-        console.log("Image Analysis:", imageDescription);
+        if (process.env.NODE_ENV === "development") {
+          console.log("Image Analysis:", imageDescription?.substring(0, 100) + "...");
+        }
 
         // Combine the description with the style transformation
         finalPrompt = `${imageDescription}. Transform this ${
           prompt ? `with the following style: ${prompt}` : ""
         }`;
       } catch (visionError) {
-        console.error("GPT-4 Vision error:", visionError);
+        if (process.env.NODE_ENV === "development") {
+          console.error("GPT-4 Vision error:", visionError);
+        }
         // Fallback to using just the prompt if vision fails
         finalPrompt = prompt || "A beautiful artistic image";
       }
@@ -180,11 +186,13 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // Log successful generation
-      console.log("Image generated successfully");
-      console.log("Image URL:", imageUrl);
-      console.log("Final prompt used:", finalPrompt);
-      console.log("Revised prompt:", revisedPrompt);
+      // Log successful generation (development only)
+      if (process.env.NODE_ENV === "development") {
+        console.log("Image generated successfully");
+        console.log("Image URL:", imageUrl?.substring(0, 80) + "...");
+        console.log("Final prompt used:", finalPrompt?.substring(0, 100) + "...");
+        console.log("Revised prompt:", revisedPrompt?.substring(0, 100) + "...");
+      }
 
       return NextResponse.json({
         success: true,
@@ -200,7 +208,9 @@ export async function POST(request: NextRequest) {
         },
       });
     } catch (openaiError: unknown) {
-      console.error("OpenAI API error:", openaiError);
+      if (process.env.NODE_ENV === "development") {
+        console.error("OpenAI API error:", openaiError);
+      }
 
       // Handle specific OpenAI errors
       const oe: any = openaiError;
@@ -228,7 +238,9 @@ export async function POST(request: NextRequest) {
       throw openaiError;
     }
   } catch (error) {
-    console.error("Image transformation error:", error);
+    if (process.env.NODE_ENV === "development") {
+      console.error("Image transformation error:", error);
+    }
     return NextResponse.json(
       {
         error: "Image generation failed",
@@ -270,7 +282,9 @@ export async function GET(request: NextRequest) {
       userId: userId,
     });
   } catch (error) {
-    console.error("Error checking usage:", error);
+    if (process.env.NODE_ENV === "development") {
+      console.error("Error checking usage:", error);
+    }
     return NextResponse.json(
       {
         hasAccess: false,

@@ -107,13 +107,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log("=== IMAGE GENERATION REQUEST ===");
-    console.log("User ID:", userId);
-    console.log("Prompt:", prompt);
-    console.log("Size:", size);
-    console.log("Quality:", quality);
-    console.log("Style:", style);
-    console.log("================================");
+    // Production: Remove console logs for security
+    if (process.env.NODE_ENV === "development") {
+      console.log("=== IMAGE GENERATION REQUEST ===");
+      console.log("User ID:", userId);
+      console.log("Prompt:", prompt?.substring(0, 50) + "...");
+      console.log("Size:", size);
+      console.log("Quality:", quality);
+      console.log("Style:", style);
+      console.log("================================");
+    }
 
     try {
       // Check for demo mode - return placeholder for testing
@@ -124,7 +127,9 @@ export async function POST(request: NextRequest) {
 
       if (isDemoMode) {
         // Return a placeholder image for demo/testing
-        console.log("Demo mode: Returning placeholder image");
+        if (process.env.NODE_ENV === "development") {
+          console.log("Demo mode: Returning placeholder image");
+        }
         // Use a nice duck image from Unsplash
         imageUrl =
           "https://images.unsplash.com/photo-1459682687441-7761439a709d?q=80&w=2110&auto=format&fit=crop";
@@ -148,18 +153,24 @@ export async function POST(request: NextRequest) {
         revisedPrompt = response.data[0].revised_prompt!;
       }
 
-      // Log successful generation
-      console.log("Image generated successfully");
-      console.log("Image URL:", imageUrl);
-      console.log("Revised prompt:", revisedPrompt);
+      // Log successful generation (development only)
+      if (process.env.NODE_ENV === "development") {
+        console.log("Image generated successfully");
+        console.log("Image URL:", imageUrl?.substring(0, 80) + "...");
+        console.log("Revised prompt:", revisedPrompt?.substring(0, 100) + "...");
+      }
 
       // Update free generation counter if this was a free generation (skip in demo mode)
       if (!isDemoMode && userId && !hasPaid && freeGenerationsUsed === 0) {
         try {
           await incrementFreeGenerations(userId);
-          console.log("Updated free generation counter for user:", userId);
+          if (process.env.NODE_ENV === "development") {
+            console.log("Updated free generation counter for user:", userId);
+          }
         } catch (error) {
-          console.error("Error updating free generation counter:", error);
+          if (process.env.NODE_ENV === "development") {
+            console.error("Error updating free generation counter:", error);
+          }
           // Continue even if metadata update fails
         }
       }
@@ -182,7 +193,9 @@ export async function POST(request: NextRequest) {
         { headers: rateLimitHeaders(rl) }
       );
     } catch (openaiError: unknown) {
-      console.error("OpenAI API error:", openaiError);
+      if (process.env.NODE_ENV === "development") {
+        console.error("OpenAI API error:", openaiError);
+      }
       const oe: any = openaiError;
       // Handle specific OpenAI errors
       if (oe?.error?.code === "content_policy_violation") {
@@ -209,7 +222,9 @@ export async function POST(request: NextRequest) {
       throw openaiError;
     }
   } catch (error) {
-    console.error("Image generation error:", error);
+    if (process.env.NODE_ENV === "development") {
+      console.error("Image generation error:", error);
+    }
     return NextResponse.json(
       {
         error: "Image generation failed",
@@ -253,7 +268,9 @@ export async function GET(request: NextRequest) {
       { headers: rateLimitHeaders(rateLimit(rateLimitKey(userId, null))) }
     );
   } catch (error) {
-    console.error("Error checking access:", error);
+    if (process.env.NODE_ENV === "development") {
+      console.error("Error checking access:", error);
+    }
     return NextResponse.json(
       {
         hasAccess: false,

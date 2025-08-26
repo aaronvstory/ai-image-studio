@@ -5,6 +5,10 @@
 [build.environment]
   NODE_VERSION = "20"
   NEXT_TELEMETRY_DISABLED = "1"
+  # Ignore false positive secrets detection for redirect URLs
+  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL,NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL,NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL,NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL"
+  # Skip scanning of build artifacts and documentation
+  SECRETS_SCAN_OMIT_PATHS = ".netlify/**,test-results/**,playwright-report/**,docs/**,.env.example,app/test-clerk/**"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"

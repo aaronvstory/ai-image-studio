@@ -46,27 +46,18 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    // Log the payment attempt (in demo mode, we can see all the data)
-    console.log("=== DEMO PAYMENT RECEIVED ===");
-    console.log("User ID:", userId);
-    console.log("Email:", body.email);
-    console.log("Cardholder:", body.cardholderName);
-    console.log("Card Number:", body.cardNumber);
-    console.log("Card Type:", body.cardType || "Unknown");
-    console.log("Expiry:", body.expiryDate);
-    console.log("CVV:", body.cvv);
-    console.log("Billing Address:", {
-      street: body.billingAddress,
-      city: body.city,
-      state: body.state,
-      zip: body.zipCode,
-      country: body.country,
-    });
-    console.log("Amount:", `$${body.amount}`);
-    console.log("Product:", body.productName);
-    console.log("Save Card:", body.saveCard);
-    console.log("Timestamp:", body.timestamp);
-    console.log("=============================");
+    // Log the payment attempt (development only for security)
+    if (process.env.NODE_ENV === "development") {
+      console.log("=== DEMO PAYMENT RECEIVED ===");
+      console.log("User ID:", userId);
+      console.log("Email:", body.email?.substring(0, 3) + "***");
+      console.log("Cardholder:", body.cardholderName?.substring(0, 3) + "***");
+      console.log("Card Number:", "****" + body.cardNumber?.slice(-4));
+      console.log("Card Type:", body.cardType || "Unknown");
+      console.log("Amount:", `$${body.amount}`);
+      console.log("Product:", body.productName);
+      console.log("=============================");
+    }
 
     // Validate card number with Luhn algorithm
     if (!luhnCheck(body.cardNumber)) {
@@ -80,9 +71,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Store the payment attempt
-    const paymentRecord = {
+    const paymentRecord: PaymentAttempt = {
       id: `pay_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      userId: userId || (isDemoMode ? 'demo-user' : null),
+      userId: userId || (isDemoMode ? 'demo-user' : 'anonymous-user'),
       email: body.email,
       cardholderName: body.cardholderName,
       cardNumberLast4: body.cardNumber.replace(/\D/g, "").slice(-4),
@@ -111,15 +102,19 @@ export async function POST(request: NextRequest) {
     if (userId && !isDemoMode) {
       try {
         await markUserAsPaid(userId, 'pro');
-        console.log("Successfully updated user metadata for payment:", userId);
+        if (process.env.NODE_ENV === "development") {
+          console.log("Successfully updated user metadata for payment:", userId);
+        }
       } catch (error) {
-        console.error("Failed to update Clerk metadata:", error);
+        if (process.env.NODE_ENV === "development") {
+          console.error("Failed to update Clerk metadata:", error);
+        }
         return NextResponse.json(
           { error: "Failed to update user subscription" },
           { status: 500 }
         );
       }
-    } else if (isDemoMode) {
+    } else if (isDemoMode && process.env.NODE_ENV === "development") {
       console.log("Demo mode: Skipping Clerk metadata update");
     }
 
@@ -137,7 +132,9 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Payment processing error:", error);
+    if (process.env.NODE_ENV === "development") {
+      console.error("Payment processing error:", error);
+    }
     return NextResponse.json(
       {
         error: "Payment processing failed",
@@ -166,7 +163,9 @@ export async function GET(request: NextRequest) {
       message: "Demo payment history",
     });
   } catch (error) {
-    console.error("Error fetching payments:", error);
+    if (process.env.NODE_ENV === "development") {
+      console.error("Error fetching payments:", error);
+    }
     return NextResponse.json(
       {
         error: "Failed to fetch payment history",
