@@ -115,3 +115,7 @@ app/test-clerk/
 *_debug.txt
 *_test.log
 *.backup
+
+# Sensitive documentation and serena cache
+.serena/
+docs/

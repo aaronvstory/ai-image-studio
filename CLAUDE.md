@@ -7,13 +7,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 AI-powered image generation SaaS using OpenAI's DALL-E 3. Built with Next.js 15.3.5, Clerk authentication, TypeScript 5, and shadcn/ui v4. Features payment gating with demo checkout and runs exclusively on port 3500.
 
 ### 🚀 Current Implementation Status
-- ⚠️ **Clerk Authentication**: Configured with provided keys (pk_test_bWVldC1jb3lvdGUtMi5jbGVyay5hY2NvdW50cy5kZXYk)
+- ⚠️ **Clerk Authentication**: Configured with provided keys (pk_test_YOUR_PUBLISHABLE_KEY_HERE)
 - ✅ **Clerk App Router Setup**: Using clerkMiddleware() in middleware.ts
 - ✅ **ClerkProvider**: Properly wrapping app in layout.tsx
 - ✅ **Authentication Pages**: SignIn/SignUp components at `/sign-in` and `/sign-up`
 - ✅ **Environment Variables**: All Clerk env vars configured including FAPI
-- ⚠️ **Current Issue**: Clerk fails to initialize (see docs/clerk-integration-report.md)
-- 📚 **Full Documentation**: [`docs/clerk-integration-report.md`](./docs/clerk-integration-report.md)
+- ⚠️ **Current Issue**: Clerk fails to initialize (configuration needed)
+- 📚 **Full Documentation**: Refer to Clerk documentation for setup details
 
 ## Critical Process Management
 
@@ -111,9 +111,9 @@ PORT=3500
 OPENAI_API_KEY=sk-...
 
 # Clerk Authentication (Current Configuration)
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_bWVldC1jb3lvdGUtMi5jbGVyay5hY2NvdW50cy5kZXYk
-CLERK_SECRET_KEY=sk_test_ETWcdJ5ZpK5y2AK0aBBfiHWKhEdQonKNhA4bn53K6y
-NEXT_PUBLIC_CLERK_FAPI=https://meet-coyote-2.clerk.accounts.dev
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_YOUR_PUBLISHABLE_KEY_HERE
+CLERK_SECRET_KEY=sk_test_YOUR_SECRET_KEY_HERE
+NEXT_PUBLIC_CLERK_FAPI=https://YOUR_INSTANCE.clerk.accounts.dev
 
 # Clerk URLs
 NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
@@ -160,7 +160,7 @@ npx playwright test --debug tests/comprehensive-test.spec.ts
 - **Fully functional Clerk authentication with hosted pages**
 - **Free generation system working**
 - **Payment gating operational**
-- **Complete documentation**: See [`docs/authentication-implementation.md`](./docs/authentication-implementation.md)
+- **Complete documentation**: Authentication implementation completed
 
 ### User Journey
 1. **New users**: Redirected to `/sign-up` when attempting generation
@@ -177,12 +177,12 @@ npx playwright test --debug tests/comprehensive-test.spec.ts
 - **Tests**: `tests/seamless-auth-flow.spec.ts`
 
 ### Demo Login Credentials (ALWAYS USE FOR TESTING)
-- **Email**: rookies-horror1r@icloud.com
+- **Email**: demo@example.com
 - **Username**: demo
-- **Phone**: (323) 323-3232  
+- **Phone**: (555) 555-5555  
 - **Password**: demo123
-- **Sign In URL**: https://meet-coyote-2.accounts.dev/sign-in
-- **Sign Up URL**: https://meet-coyote-2.accounts.dev/sign-up
+- **Sign In URL**: https://YOUR_INSTANCE.accounts.dev/sign-in
+- **Sign Up URL**: https://YOUR_INSTANCE.accounts.dev/sign-up
 - **Testing Tool**: Always use Puppeteer MCP for authentication testing
 
 ### Clerk Configuration Details
@@ -231,7 +231,7 @@ The `cleanup.js` script runs automatically before `npm run dev`:
 - Migrated from custom auth modal to Clerk hosted pages
 - Implemented user metadata utilities for state management
 - Added comprehensive test suite for authentication flow
-- Created detailed documentation in `docs/` folder
+- Created comprehensive authentication system
 - Fixed useUser hook import and integration
 
 ### Key Files Modified
