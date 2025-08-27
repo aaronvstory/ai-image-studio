@@ -136,3 +136,16 @@ test-screenshots/
 
 # Root-level test files (temporary testing scripts)
 /test-*.js
+
+# Cleanup and utility scripts  
+/cleanup.*
+/prevent-nul-creation.js
+/run-*.bat
+/run-*.ps1
+/start-clean.bat
+
+# Test API endpoints (development only)
+/app/api/test-*/
+/app/api/debug/
+/app/api/check-env/
+/app/api/which-gemini-key/
