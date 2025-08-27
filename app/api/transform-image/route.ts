@@ -37,33 +37,61 @@ async function incrementFreeUsage() {
 
 export async function POST(request: NextRequest) {
   try {
-    // Check for demo mode
+    // Check for demo mode or auth bypass
     const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
+    const authRequired = process.env.NEXT_PUBLIC_AUTH_REQUIRED !== 'false';
     
-    // Get Supabase client
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    let user: any = null;
+    
+    if (authRequired && !isDemoMode) {
+      // Get Supabase client
+      const supabase = await createClient();
+      const { data: { user: authUser } } = await supabase.auth.getUser();
 
-    // Require authentication unless in demo mode
-    if (!isDemoMode && !user) {
-      return NextResponse.json(
-        {
-          error: "Authentication required",
-          message: "Please sign in to use image transformation",
-        },
-        { status: 401 }
-      );
+      // Require authentication unless in demo mode
+      if (!authUser) {
+        return NextResponse.json(
+          {
+            error: "Authentication required",
+            message: "Please sign in to use image transformation",
+          },
+          { status: 401 }
+        );
+      }
+      
+      user = authUser;
+
+      // Get user metadata
+      const hasPaid = user?.user_metadata?.has_paid === true;
+      const generationCount: number = 
+        typeof user?.user_metadata?.generation_count === "number"
+          ? user.user_metadata.generation_count
+          : 0;
+
+      // Check if user has already used their free generation
+      if (!hasPaid && generationCount >= 1) {
+        return NextResponse.json(
+          {
+            error: "Free trial limit reached",
+            message:
+              "You've used your free generation. Please upgrade to continue.",
+            requiresPayment: true,
+            generationCount: generationCount,
+          },
+          { status: 402 }
+        );
+      }
     }
 
-    // Get user metadata
-    const hasPaid = isDemoMode ? true : (user?.user_metadata?.has_paid === true);
-    const generationCount: number = isDemoMode ? 0 :
+    // Get user metadata (for auth mode) or use unlimited (for no-auth mode)
+    const hasPaid = !authRequired || isDemoMode || (user?.user_metadata?.has_paid === true);
+    const generationCount: number = !authRequired || isDemoMode ? 0 :
       (typeof user?.user_metadata?.generation_count === "number"
         ? user.user_metadata.generation_count
         : 0);
 
-    // Check if user has already used their free generation
-    if (!hasPaid && generationCount >= 1) {
+    // Skip free generation check for no-auth mode
+    if (authRequired && !isDemoMode && !hasPaid && generationCount >= 1) {
       return NextResponse.json(
         {
           error: "Free trial limit reached",

@@ -133,3 +133,6 @@ docs/
 # Test artifacts
 screenshots/
 test-screenshots/
+
+# Root-level test files (temporary testing scripts)
+/test-*.js

@@ -23,7 +23,8 @@ export async function POST(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     const userId = user?.id;
 
-    // Demo mode bypass for testing
+    // Check if authentication is required
+    const authRequired = process.env.NEXT_PUBLIC_AUTH_REQUIRED !== "false";
     const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
     const body = await request.json();
 
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!userId && !isDemoMode) {
+    if (!userId && authRequired && !isDemoMode) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -55,8 +56,8 @@ export async function POST(request: NextRequest) {
     let hasPaid = false;
     let freeGenerationsUsed = 0;
 
-    // Skip payment check in demo mode
-    if (!isDemoMode && user) {
+    // Skip payment check in demo mode or when auth not required
+    if (authRequired && !isDemoMode && user) {
       // Get user metadata to check payment status
       const metadata = user.user_metadata || {};
       hasPaid = metadata.has_paid === true;
@@ -162,8 +163,8 @@ export async function POST(request: NextRequest) {
         console.log("Revised prompt:", revisedPrompt?.substring(0, 100) + "...");
       }
 
-      // Update free generation counter if this was a free generation (skip in demo mode)
-      if (!isDemoMode && user && !hasPaid && freeGenerationsUsed === 0) {
+      // Update free generation counter if this was a free generation (skip in demo mode or auth bypass)
+      if (authRequired && !isDemoMode && user && !hasPaid && freeGenerationsUsed === 0) {
         try {
           // Update user metadata with incremented free generation count
           const { error } = await supabase.auth.updateUser({

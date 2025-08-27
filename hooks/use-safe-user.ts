@@ -10,10 +10,11 @@ interface SafeUserHook {
 
 // Safe wrapper for useUser that works with Supabase
 export function useSafeUser(): SafeUserHook {
-  // Demo mode disables real auth
+  // Check both demo mode and auth required settings
   const demoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+  const authRequired = process.env.NEXT_PUBLIC_AUTH_REQUIRED !== 'false';
   
-  if (demoMode) {
+  if (demoMode || !authRequired) {
     return {
       isLoaded: true,
       isSignedIn: true,

@@ -1,13 +1,14 @@
-import { type NextRequest } from 'next/server'
+import { type NextRequest, NextResponse } from 'next/server'
 import { updateSession } from '@/lib/supabase/middleware'
 
 export async function middleware(request: NextRequest) {
-  // Demo mode check
+  // Check both demo mode and auth required settings
   const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
+  const authRequired = process.env.NEXT_PUBLIC_AUTH_REQUIRED !== 'false'
   
-  if (isDemoMode) {
-    // In demo mode, skip authentication
-    return
+  if (isDemoMode || !authRequired) {
+    // In demo mode or when auth not required, skip authentication
+    return NextResponse.next()
   }
   
   // Update user's auth session

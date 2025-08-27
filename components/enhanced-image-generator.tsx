@@ -1,12 +1,15 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import { useSafeUser } from "@/hooks/use-safe-user";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import {
   Sparkles,
   Loader2,
@@ -23,11 +26,27 @@ import {
   Camera,
   Palette,
   Stars,
+  Settings,
+  Grid3X3,
+  Clipboard,
 } from "lucide-react";
 import { toast } from "sonner";
-// import { useUser, useAuth } from '@clerk/nextjs'
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import {
+  Provider,
+  Model,
+  GeneratorSettings,
+  GenerationRequest,
+  GenerationResponse,
+  MODEL_CONFIGS,
+  PROVIDER_CONFIGS,
+  AspectRatio,
+  OpenAISize,
+  OpenAIQuality,
+  OpenAIStyle,
+  GoogleQuality,
+} from "@/types/image-generation";
 
 const QUICK_PROMPTS = [
   {
@@ -82,13 +101,31 @@ const QUICK_PROMPTS = [
 
 export function EnhancedImageGenerator() {
   const { user, isSignedIn } = useSafeUser();
+  
+  // Check if authentication is required
+  const authRequired = process.env.NEXT_PUBLIC_AUTH_REQUIRED !== 'false';
+  const showAuthUI = authRequired && !process.env.NEXT_PUBLIC_DEMO_MODE;
   const [prompt, setPrompt] = useState(""); // For text-to-image
   const [transformPrompt, setTransformPrompt] = useState(""); // For image transformation
   const [loading, setLoading] = useState(false);
-  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [generatedImages, setGeneratedImages] = useState<string[]>([]);
   const [selectedPrompt, setSelectedPrompt] = useState<number | null>(null);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("upload");
+  const [settings, setSettings] = useState<GeneratorSettings>({
+    provider: 'openai',
+    model: 'dall-e-3',
+    openai: {
+      size: '1024x1024',
+      quality: 'hd',
+      style: 'vivid'
+    },
+    google: {
+      aspectRatio: '1:1',
+      numberOfImages: 1,
+      quality: 'standard'
+    }
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -106,6 +143,45 @@ export function EnhancedImageGenerator() {
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  // Handle drag and drop
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const files = Array.from(e.dataTransfer.files);
+    const imageFile = files.find(file => file.type.startsWith('image/'));
+    
+    if (imageFile) {
+      const input = { target: { files: [imageFile] } } as any;
+      handleImageUpload(input);
+    }
+  }, []);
+
+  // Handle clipboard paste
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+    const items = Array.from(e.clipboardData.items);
+    const imageItem = items.find(item => item.type.startsWith('image/'));
+    
+    if (imageItem) {
+      const file = imageItem.getAsFile();
+      if (file) {
+        const input = { target: { files: [file] } } as any;
+        handleImageUpload(input);
+        toast.success("Image pasted from clipboard!");
+      }
+    }
+  }, []);
+
+  // Update settings when provider changes
+  const updateSettings = (updates: Partial<GeneratorSettings>) => {
+    setSettings(prev => ({ ...prev, ...updates }));
   };
 
   const handleGenerate = async () => {
@@ -161,33 +237,46 @@ export function EnhancedImageGenerator() {
     }
 
     setLoading(true);
-    setGeneratedImage(null);
+    setGeneratedImages([]);
 
     try {
-      const endpoint =
-        activeTab === "upload" ? "/api/transform-image" : "/api/generate-image";
-      const body =
-        activeTab === "upload"
-          ? {
-              image: uploadedImage,
-              prompt: finalPrompt || "Enhance and transform this image",
-            }
-          : {
-              prompt: finalPrompt,
-              size: "1024x1024",
-              quality: "hd",
-              style: "vivid",
-            };
+      const endpoint = `/api/gen/${settings.provider}`;
+      
+      let requestBody: GenerationRequest;
+      
+      if (settings.provider === 'openai') {
+        requestBody = {
+          provider: 'openai',
+          mode: activeTab === 'upload' ? 'img2img' : 'txt2img',
+          prompt: finalPrompt,
+          model: settings.model as any,
+          size: settings.openai?.size,
+          quality: settings.openai?.quality,
+          style: settings.openai?.style,
+          ...(activeTab === 'upload' && uploadedImage ? { image: uploadedImage } : {})
+        };
+      } else {
+        requestBody = {
+          provider: 'google',
+          mode: activeTab === 'upload' ? 'img2img' : 'txt2img',
+          prompt: finalPrompt,
+          model: settings.model as any,
+          aspectRatio: settings.google?.aspectRatio,
+          numberOfImages: settings.google?.numberOfImages,
+          quality: settings.google?.quality,
+          ...(activeTab === 'upload' && uploadedImage ? { image: uploadedImage } : {})
+        };
+      }
 
       const response = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify(requestBody),
       });
 
-      const data = await response.json();
+      const data = await response.json() as GenerationResponse;
 
       if (response.status === 402) {
         toast.error("Please upgrade to continue generating images");
@@ -205,12 +294,16 @@ export function EnhancedImageGenerator() {
         return;
       }
 
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to generate image");
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Failed to generate image");
       }
 
-      setGeneratedImage(data.imageUrl);
-      toast.success("Image generated successfully! ✨");
+      if (data.success) {
+        const images = data.images || [data.image];
+        setGeneratedImages(images);
+        const imageCount = images.length;
+        toast.success(`${imageCount} image${imageCount > 1 ? 's' : ''} generated successfully! ✨`);
+      }
 
       if (!hasPaid && freeGenerationsUsed === 0) {
         setTimeout(() => {
@@ -244,17 +337,19 @@ export function EnhancedImageGenerator() {
     }
   };
 
-  const handleDownload = async () => {
-    if (!generatedImage) return;
+  const handleDownload = async (imageUrl?: string, index?: number) => {
+    const urlToDownload = imageUrl || generatedImages[0];
+    if (!urlToDownload) return;
 
     try {
-      const response = await fetch(generatedImage);
+      const response = await fetch(urlToDownload);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.style.display = "none";
       a.href = url;
-      a.download = `gpt5-generated-${Date.now()}.png`;
+      const suffix = index !== undefined ? `-${index + 1}` : '';
+      a.download = `${settings.provider}-generated-${Date.now()}${suffix}.png`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -266,7 +361,12 @@ export function EnhancedImageGenerator() {
   };
 
   return (
-    <div id="image-generator" className="w-full py-16 relative overflow-hidden">
+    <div 
+      id="image-generator" 
+      className="w-full py-16 relative overflow-hidden"
+      onPaste={handlePaste}
+      tabIndex={0}
+    >
       {/* Background gradient */}
       <div className="absolute inset-0 bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 dark:from-purple-950/20 dark:via-pink-950/20 dark:to-orange-950/20" />
 
@@ -282,7 +382,7 @@ export function EnhancedImageGenerator() {
             Create Your Image
           </h2>
           <p className="text-lg sm:text-xl text-muted-foreground max-w-3xl mx-auto px-4">
-            Upload an image to transform it or generate from text description
+            Multi-provider AI image generation with OpenAI DALL-E and Google Imagen
           </p>
         </motion.div>
 
@@ -296,6 +396,212 @@ export function EnhancedImageGenerator() {
           >
             <Card className="overflow-hidden bg-zinc-900/50 backdrop-blur-xl border-zinc-800/50 shadow-2xl hover:shadow-purple-500/10 transition-all duration-300 h-full">
               <CardContent className="p-8 space-y-6">
+                {/* Provider & Model Selection */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Settings className="h-4 w-4 text-purple-500" />
+                    <h3 className="font-semibold">AI Provider & Model</h3>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Provider Selection */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Provider</Label>
+                      <RadioGroup
+                        value={settings.provider}
+                        onValueChange={(value) => {
+                          const provider = value as Provider;
+                          const defaultModel = PROVIDER_CONFIGS[provider].models[0] as Model;
+                          updateSettings({ provider, model: defaultModel });
+                        }}
+                        className="flex gap-4"
+                      >
+                        {Object.entries(PROVIDER_CONFIGS).map(([key, config]) => (
+                          <div key={key} className="flex items-center space-x-2">
+                            <RadioGroupItem value={key} id={key} />
+                            <Label htmlFor={key} className="text-sm">
+                              {config.label}
+                            </Label>
+                          </div>
+                        ))}
+                      </RadioGroup>
+                    </div>
+                    
+                    {/* Model Selection */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Model</Label>
+                      <Select
+                        value={settings.model}
+                        onValueChange={(value) => updateSettings({ model: value as Model })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PROVIDER_CONFIGS[settings.provider].models.map((model) => (
+                            <SelectItem key={model} value={model}>
+                              {MODEL_CONFIGS[model].label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  
+                  {/* Model Description */}
+                  <div className="p-3 bg-muted/50 rounded-lg">
+                    <p className="text-sm text-muted-foreground mb-2">
+                      {MODEL_CONFIGS[settings.model].description}
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {MODEL_CONFIGS[settings.model].features.map((feature) => (
+                        <Badge key={feature} variant="secondary" className="text-xs">
+                          {feature}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* Provider-specific Settings */}
+                  {settings.provider === 'openai' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Size</Label>
+                        <Select
+                          value={settings.openai?.size}
+                          onValueChange={(value) => 
+                            updateSettings({ 
+                              openai: { ...settings.openai!, size: value as OpenAISize } 
+                            })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {MODEL_CONFIGS[settings.model].supportedSizes?.map((size) => (
+                              <SelectItem key={size} value={size}>
+                                {size}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Quality</Label>
+                        <Select
+                          value={settings.openai?.quality}
+                          onValueChange={(value) => 
+                            updateSettings({ 
+                              openai: { ...settings.openai!, quality: value as OpenAIQuality } 
+                            })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="standard">Standard</SelectItem>
+                            <SelectItem value="hd">HD</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Style</Label>
+                        <Select
+                          value={settings.openai?.style}
+                          onValueChange={(value) => 
+                            updateSettings({ 
+                              openai: { ...settings.openai!, style: value as OpenAIStyle } 
+                            })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="vivid">Vivid</SelectItem>
+                            <SelectItem value="natural">Natural</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {settings.provider === 'google' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Aspect Ratio</Label>
+                        <Select
+                          value={settings.google?.aspectRatio}
+                          onValueChange={(value) => 
+                            updateSettings({ 
+                              google: { ...settings.google!, aspectRatio: value as AspectRatio } 
+                            })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {MODEL_CONFIGS[settings.model].supportedAspectRatios?.map((ratio) => (
+                              <SelectItem key={ratio} value={ratio}>
+                                {ratio}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Images</Label>
+                        <Select
+                          value={settings.google?.numberOfImages.toString()}
+                          onValueChange={(value) => 
+                            updateSettings({ 
+                              google: { ...settings.google!, numberOfImages: parseInt(value) as any } 
+                            })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: MODEL_CONFIGS[settings.model].maxImages }, (_, i) => i + 1).map((num) => (
+                              <SelectItem key={num} value={num.toString()}>
+                                {num}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Quality</Label>
+                        <Select
+                          value={settings.google?.quality}
+                          onValueChange={(value) => 
+                            updateSettings({ 
+                              google: { ...settings.google!, quality: value as GoogleQuality } 
+                            })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="fast">Fast</SelectItem>
+                            <SelectItem value="standard">Standard</SelectItem>
+                            <SelectItem value="ultra">Ultra</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
                 {/* Tab Selection */}
                 <Tabs
                   value={activeTab}
@@ -332,6 +638,8 @@ export function EnhancedImageGenerator() {
                       </h3>
                       <div
                         onClick={() => fileInputRef.current?.click()}
+                        onDragOver={handleDragOver}
+                        onDrop={handleDrop}
                         className="border-2 border-dashed border-zinc-700 hover:border-purple-500 bg-zinc-800/50 rounded-xl p-12 text-center cursor-pointer transition-all duration-300 hover:bg-zinc-800/70 hover:shadow-lg hover:shadow-purple-500/20"
                       >
                         {uploadedImage ? (
@@ -349,11 +657,15 @@ export function EnhancedImageGenerator() {
                           <>
                             <Upload className="h-12 w-12 text-purple-500 mx-auto mb-3" />
                             <p className="text-sm font-medium">
-                              Click to upload or drag and drop
+                              Click to upload, drag & drop, or paste (Ctrl+V)
                             </p>
                             <p className="text-xs text-muted-foreground mt-1">
                               PNG, JPG, WebP up to 10MB
                             </p>
+                            <div className="flex items-center justify-center gap-2 mt-2">
+                              <Clipboard className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-xs text-muted-foreground">Paste from clipboard</span>
+                            </div>
                           </>
                         )}
                         <input
@@ -459,18 +771,28 @@ export function EnhancedImageGenerator() {
                       <Sparkles className="mr-2 h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
                       <span className="whitespace-normal">
                         Generate Image{" "}
-                        {!isSignedIn && (
+                        {showAuthUI && !isSignedIn && (
                           <span className="inline sm:inline">(Free Trial)</span>
+                        )}
+                        {!authRequired && (
+                          <span className="inline sm:inline">(Unlimited)</span>
                         )}
                       </span>
                     </>
                   )}
                 </Button>
 
-                {!isSignedIn && (
+                {showAuthUI && !isSignedIn && (
                   <p className="text-xs text-center text-muted-foreground">
                     <Lock className="inline h-3 w-3 mr-1" />
                     Quick sign up for your free GPT-5 generation
+                  </p>
+                )}
+                
+                {!authRequired && (
+                  <p className="text-xs text-center text-green-400">
+                    <Zap className="inline h-3 w-3 mr-1" />
+                    Free Mode Active - No Login Required
                   </p>
                 )}
 
@@ -508,40 +830,105 @@ export function EnhancedImageGenerator() {
             <Card className="overflow-hidden bg-zinc-900/50 backdrop-blur-xl border-zinc-800/50 shadow-2xl hover:shadow-pink-500/10 transition-all duration-300 h-full min-h-[700px]">
               <CardContent className="p-8 h-full flex flex-col">
                 <AnimatePresence mode="wait">
-                  {generatedImage ? (
+                  {generatedImages.length > 0 ? (
                     <motion.div
-                      key="image"
+                      key="images"
                       initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.9 }}
                       className="space-y-4 flex-1 flex flex-col"
                     >
-                      <div className="relative rounded-xl overflow-hidden flex-1">
-                        <img
-                          src={generatedImage}
-                          alt="Generated"
-                          className="w-full h-full object-contain"
-                        />
-
-                        {/* Success badge */}
-                        <div className="absolute top-4 left-4">
-                          <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 text-white">
-                            <Sparkles className="w-3 h-3 mr-1" />
-                            AI Generated
-                          </Badge>
-                        </div>
+                      {/* Image Grid */}
+                      <div className="flex-1 overflow-auto">
+                        {generatedImages.length === 1 ? (
+                          <div className="relative rounded-xl overflow-hidden h-full">
+                            <img
+                              src={generatedImages[0]}
+                              alt="Generated"
+                              className="w-full h-full object-contain"
+                            />
+                            
+                            {/* Success badge */}
+                            <div className="absolute top-4 left-4">
+                              <Badge className={`bg-gradient-to-r ${PROVIDER_CONFIGS[settings.provider].color} text-white`}>
+                                <Sparkles className="w-3 h-3 mr-1" />
+                                {PROVIDER_CONFIGS[settings.provider].label}
+                              </Badge>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className={`grid gap-4 h-full ${
+                            generatedImages.length === 2 ? 'grid-cols-1 sm:grid-cols-2' :
+                            generatedImages.length === 3 ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' :
+                            'grid-cols-2'
+                          }`}>
+                            {generatedImages.map((imageUrl, index) => (
+                              <div key={index} className="relative rounded-xl overflow-hidden group">
+                                <img
+                                  src={imageUrl}
+                                  alt={`Generated ${index + 1}`}
+                                  className="w-full h-full object-cover aspect-square"
+                                />
+                                
+                                {/* Image number badge */}
+                                <div className="absolute top-2 left-2">
+                                  <Badge className="bg-black/50 text-white backdrop-blur-sm">
+                                    {index + 1}
+                                  </Badge>
+                                </div>
+                                
+                                {/* Individual download button */}
+                                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    onClick={() => handleDownload(imageUrl, index)}
+                                    className="h-8 w-8 p-0 bg-black/50 hover:bg-black/70 backdrop-blur-sm"
+                                  >
+                                    <Download className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {/* Provider badge for multiple images */}
+                        {generatedImages.length > 1 && (
+                          <div className="absolute top-4 left-4">
+                            <Badge className={`bg-gradient-to-r ${PROVIDER_CONFIGS[settings.provider].color} text-white`}>
+                              <Grid3X3 className="w-3 h-3 mr-1" />
+                              {generatedImages.length} images by {PROVIDER_CONFIGS[settings.provider].label}
+                            </Badge>
+                          </div>
+                        )}
                       </div>
 
                       {/* Action buttons */}
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 pt-4">
                         <Button
-                          onClick={handleDownload}
+                          onClick={() => handleDownload()}
                           variant="outline"
                           className="flex-1"
                         >
                           <Download className="mr-2 h-4 w-4" />
-                          Download
+                          Download {generatedImages.length > 1 ? 'First' : ''}
                         </Button>
+                        
+                        {generatedImages.length > 1 && (
+                          <Button
+                            onClick={() => {
+                              generatedImages.forEach((url, i) => handleDownload(url, i));
+                              toast.success(`${generatedImages.length} images downloaded!`);
+                            }}
+                            variant="outline"
+                            className="flex-1"
+                          >
+                            <Download className="mr-2 h-4 w-4" />
+                            Download All
+                          </Button>
+                        )}
+                        
                         <Button
                           onClick={() => {
                             toast.success("Sharing coming soon!");
@@ -552,6 +939,7 @@ export function EnhancedImageGenerator() {
                           <Share2 className="mr-2 h-4 w-4" />
                           Share
                         </Button>
+                        
                         <Button
                           onClick={() => {
                             toast.success("Saved to favorites!");
@@ -580,8 +968,17 @@ export function EnhancedImageGenerator() {
                         Creating your image...
                       </p>
                       <p className="text-sm mt-2">
-                        This usually takes 10-15 seconds
+                        {settings.provider === 'google' && settings.google?.numberOfImages! > 1
+                          ? `Generating ${settings.google?.numberOfImages} images...`
+                          : 'This usually takes 10-15 seconds'}
                       </p>
+                      
+                      {/* Provider info during loading */}
+                      <div className="mt-4 text-center">
+                        <Badge className={`bg-gradient-to-r ${PROVIDER_CONFIGS[settings.provider].color} text-white`}>
+                          {PROVIDER_CONFIGS[settings.provider].label} • {MODEL_CONFIGS[settings.model].label}
+                        </Badge>
+                      </div>
                     </motion.div>
                   ) : (
                     <motion.div
@@ -595,9 +992,15 @@ export function EnhancedImageGenerator() {
                       <p className="text-lg font-medium mb-2">
                         Your creation will appear here
                       </p>
-                      <p className="text-sm text-center">
-                        Upload an image or enter a prompt to begin
+                      <p className="text-sm text-center mb-4">
+                        Select your AI provider and model, then upload an image or enter a prompt to begin
                       </p>
+                      
+                      <div className="flex justify-center">
+                        <Badge className={`bg-gradient-to-r ${PROVIDER_CONFIGS[settings.provider].color} text-white`}>
+                          Ready: {PROVIDER_CONFIGS[settings.provider].label} • {MODEL_CONFIGS[settings.model].label}
+                        </Badge>
+                      </div>
                     </motion.div>
                   )}
                 </AnimatePresence>

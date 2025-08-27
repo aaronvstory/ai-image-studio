@@ -20,12 +20,17 @@ export async function GET() {
   try {
     const supabase = await createClient()
     
-    // Try a simple query to test connection
-    const { data, error } = await supabase.auth.getSession()
+    // Try to get user to test connection (will return null if not authenticated)
+    const { data, error } = await supabase.auth.getUser()
     
-    if (error) {
+    if (error && error.message.includes('not authenticated')) {
+      // This is expected if no user is logged in
+      supabaseStatus = 'Connected (no auth)'
+    } else if (error) {
       supabaseStatus = 'Connection failed'
       supabaseError = error.message
+    } else if (data.user) {
+      supabaseStatus = 'Connected (authenticated)'
     } else {
       supabaseStatus = 'Connected successfully'
     }

@@ -11,49 +11,67 @@ const openai = new OpenAI({
   dangerouslyAllowBrowser: false
 })
 
-type RequestBody =
-  | { provider: 'openai'; mode: 'txt2img'; prompt: string; size?: '1024x1024'|'1024x1792'|'1792x1024'; quality?: 'standard'|'hd'; style?: 'vivid'|'natural' }
-  | { provider: 'openai'; mode: 'img2img'; prompt: string; image: string; size?: '1024x1024' }
+import { OpenAIGenerationRequest } from '@/types/image-generation'
+
+type RequestBody = OpenAIGenerationRequest
 
 export async function POST(req: NextRequest) {
   try {
-    // Get authenticated user
-    const supabase = await createServerClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    // Check if authentication is required
+    const authRequired = process.env.NEXT_PUBLIC_AUTH_REQUIRED !== 'false'
     
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    let user: any = null
+    let admin: any = null
+    
+    if (authRequired) {
+      // Get authenticated user
+      const supabase = await createServerClient()
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+      
+      if (!authUser) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+      
+      user = authUser
+      admin = createAdminClient()
+
+      // Rate limiting
+      const ip = req.headers.get('x-forwarded-for') ?? req.headers.get('x-real-ip') ?? 'unknown'
+      const rateLimitKey = `${user.id}:${ip}`
+      const { success: rateLimitOk } = await rateLimit(rateLimitKey)
+      
+      if (!rateLimitOk) {
+        return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
+      }
+
+      // Consume credit atomically (1 credit per image)
+      const { data: consumed } = await admin.rpc('consume_credit', { 
+        p_user_id: user.id,
+        p_amount: 1
+      })
+      
+      if (!consumed) {
+        return NextResponse.json({ 
+          error: 'Insufficient credits. Please add more credits to continue.',
+          credits_needed: 1
+        }, { status: 402 })
+      }
+    } else {
+      // No auth mode - create mock admin for logging (optional)
+      admin = createAdminClient()
     }
 
-    // Rate limiting
-    const ip = req.headers.get('x-forwarded-for') ?? req.headers.get('x-real-ip') ?? 'unknown'
-    const rateLimitKey = `${user.id}:${ip}`
-    const { success: rateLimitOk } = await rateLimit(rateLimitKey)
-    
-    if (!rateLimitOk) {
-      return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
-    }    const body = await req.json() as RequestBody
-    const admin = createAdminClient()
-
-    // Consume credit atomically (1 credit per image)
-    const { data: consumed } = await admin.rpc('consume_credit', { 
-      p_user_id: user.id,
-      p_amount: 1
-    })
-    
-    if (!consumed) {
-      return NextResponse.json({ 
-        error: 'Insufficient credits. Please add more credits to continue.',
-        credits_needed: 1
-      }, { status: 402 })
-    }
+    const body = await req.json() as RequestBody
 
     try {
       let imageUrl: string
       
-      if (body.mode === 'txt2img') {
+      // Default to txt2img if no mode specified or no image provided
+      const mode = body.mode || 'txt2img'
+      
+      if (mode === 'txt2img' || !body.image) {
         const response = await openai.images.generate({
-          model: 'dall-e-3',
+          model: body.model || 'dall-e-3',
           prompt: body.prompt,
           n: 1,
           size: body.size ?? '1024x1024',
@@ -62,7 +80,8 @@ export async function POST(req: NextRequest) {
           response_format: 'url'
         })
         
-        imageUrl = response.data[0]?.url || ''      } else {
+        imageUrl = response.data[0]?.url || ''
+      } else {
         // img2img mode - DALL-E 3 doesn't support direct image editing, use variations
         const imageData = body.image.split(',')[1]
         const imageBuffer = Buffer.from(imageData, 'base64')
@@ -78,36 +97,57 @@ export async function POST(req: NextRequest) {
         imageUrl = response.data[0]?.url || ''
       }
 
-      // Log generation to database
-      await admin.from('generations').insert({
-        user_id: user.id,
-        provider: 'openai',
-        model: body.mode === 'txt2img' ? 'dall-e-3' : 'dall-e-2',
-        mode: body.mode,
-        prompt: body.prompt,
-        credits_used: 1
-      })
+      // Log generation to database (if auth required)
+      if (authRequired && user) {
+        await admin.from('generations').insert({
+          user_id: user.id,
+          provider: 'openai',
+          model: body.mode === 'txt2img' ? (body.model || 'dall-e-3') : 'dall-e-2',
+          mode: body.mode,
+          prompt: body.prompt,
+          credits_used: 1
+        })
 
-      // Get updated credit balance
-      const { data: creditsData } = await admin
-        .from('credits')
-        .select('balance')
-        .eq('user_id', user.id)        .single()
+        // Get updated credit balance
+        const { data: creditsData } = await admin
+          .from('credits')
+          .select('balance')
+          .eq('user_id', user.id)
+          .single()
 
-      return NextResponse.json({ 
-        success: true,
-        image: imageUrl,
-        credits_remaining: creditsData?.balance ?? 0,
-        provider: 'openai',
-        model: body.mode === 'txt2img' ? 'dall-e-3' : 'dall-e-2'
-      })
+        return NextResponse.json({ 
+          success: true,
+          imageUrl: imageUrl,
+          image: imageUrl,
+          images: [imageUrl],
+          credits_remaining: creditsData?.balance ?? 0,
+          provider: 'openai',
+          model: (mode === 'txt2img' ? (body.model || 'dall-e-3') : 'dall-e-2') as any,
+          numberOfImages: 1
+        })
+      } else {
+        // No auth mode - unlimited usage
+        return NextResponse.json({ 
+          success: true,
+          imageUrl: imageUrl,
+          image: imageUrl,
+          images: [imageUrl],
+          credits_remaining: 999999, // Unlimited
+          credits: 999999, // Also include credits field
+          provider: 'openai',
+          model: (mode === 'txt2img' ? (body.model || 'dall-e-3') : 'dall-e-2') as any,
+          numberOfImages: 1
+        })
+      }
       
     } catch (apiError: any) {
-      // Refund credit on API failure
-      await admin.rpc('refund_credit', { 
-        p_user_id: user.id, 
-        p_amount: 1 
-      })
+      // Refund credit on API failure (if auth required)
+      if (authRequired && user) {
+        await admin.rpc('refund_credit', { 
+          p_user_id: user.id, 
+          p_amount: 1 
+        })
+      }
       
       console.error('OpenAI API Error:', apiError)
       return NextResponse.json({ 

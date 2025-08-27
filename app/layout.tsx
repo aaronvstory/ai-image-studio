@@ -28,6 +28,9 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const authRequired = process.env.NEXT_PUBLIC_AUTH_REQUIRED !== 'false';
+  const demoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+  
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased overscroll-none`}>
@@ -40,6 +43,15 @@ export default function RootLayout({
           <CheckoutModalProvider>
             <ErrorBoundary>
               <EnvValidator />
+              {(!authRequired || demoMode) && (
+                <div className="bg-green-600/20 border-b border-green-600/30 px-4 py-2">
+                  <div className="max-w-7xl mx-auto text-center">
+                    <span className="text-green-400 text-sm font-medium">
+                      🎯 Free Mode - No Login Required • Unlimited Generations
+                    </span>
+                  </div>
+                </div>
+              )}
               {children}
               <Analytics />
               <Toaster />

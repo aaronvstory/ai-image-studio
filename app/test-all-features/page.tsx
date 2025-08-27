@@ -86,21 +86,24 @@ export default function TestAllFeatures() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
     
-    const response = await fetch('/api/nano-banana', {
+    const response = await fetch('/api/gen/gemini', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        prompt: 'A futuristic cityscape',
-        model: 'gemini-2.5-flash-image',
-        numberOfImages: 1,
-        aspectRatio: '1:1'
+        provider: 'google',
+        mode: 'txt2img',
+        prompt: 'A futuristic cityscape with flying cars and neon lights',
+        model: 'imagen-3',
+        aspectRatio: '1:1',
+        numberOfImages: 2,
+        quality: 'standard'
       })
     });
     
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Generation failed');
     
-    return data.message || 'Gemini test complete';
+    return `Generated ${data.numberOfImages || 1} image(s) with ${data.model}`;
   };
 
   const testPayment = async () => {
