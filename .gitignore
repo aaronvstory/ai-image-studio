@@ -1,3 +1,42 @@
+# workspace/agent caches
+.yoyo/
+.workspace/
+.mcp/
+.serena/
+.agent/
+.cache/
+.tmp/
+
+# Node/Next/Turbo
+node_modules/
+.next/
+.turbo/
+.vercel/
+dist/
+out/
+
+# IDE/system
+.env
+.env.*
+.env.local
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# testing/coverage
+coverage/
+.nyc_output/
+.playwright/
+test-results/
+playwright-report/
+
+# logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
@@ -129,6 +168,11 @@ docs/
 
 # User-specific Claude configuration
 .claude/
+
+# Workspace management directories
+.yoyo/
+.workspace/
+.task/
 
 # Test artifacts
 screenshots/

@@ -13,7 +13,7 @@
     "clean": "node cleanup.js",
     "clean:dry": "node cleanup.js --dry",
     "clean:verbose": "node cleanup.js --verbose",
-    "predev": "node cleanup.js",
+
     "workspace:health": "node cleanup.js --dry --verbose",
     "workspace:prevent": "node prevent-nul-creation.js",
     "workspace:full-check": "node prevent-nul-creation.js && node cleanup.js --dry",

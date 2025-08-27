@@ -49,7 +49,7 @@ const IMAGE_MODELS = [
     badge: 'Popular'
   },
   {
-    id: 'gemini-2.5-flash-image',
+    id: 'gemini-2.5-flash',
     name: 'Gemini 2.5 Flash',
     provider: 'Google',
     description: 'Fast generation with good quality',
@@ -216,7 +216,7 @@ export function ImageGeneratorWithGemini() {
         },
         body: JSON.stringify({
           prompt: transformPrompt,
-          model: 'gemini-2.5-flash-image',
+          model: 'gemini-2.5-flash',
           editImage: {
             imageData: uploadedImage,
             mimeType: 'image/png'

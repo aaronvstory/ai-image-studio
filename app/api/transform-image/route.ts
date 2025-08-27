@@ -43,9 +43,10 @@ export async function POST(request: NextRequest) {
     
     let user: any = null;
     
+    // Get Supabase client (for later use even if auth not required)
+    const supabase = await createClient();
+    
     if (authRequired && !isDemoMode) {
-      // Get Supabase client
-      const supabase = await createClient();
       const { data: { user: authUser } } = await supabase.auth.getUser();
 
       // Require authentication unless in demo mode

@@ -72,7 +72,7 @@ export default function DemoMultiProvider() {
       const data = await response.json() as GenerationResponse;
 
       if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Generation failed');
+        throw new Error((data as any).error || 'Generation failed');
       }
 
       if (data.success) {

@@ -262,7 +262,7 @@ export function EnhancedImageGenerator() {
           prompt: finalPrompt,
           model: settings.model as any,
           aspectRatio: settings.google?.aspectRatio,
-          numberOfImages: settings.google?.numberOfImages,
+          numberOfImages: settings.google?.numberOfImages as (1 | 2 | 3 | 4) | undefined,
           quality: settings.google?.quality,
           ...(activeTab === 'upload' && uploadedImage ? { image: uploadedImage } : {})
         };
@@ -295,7 +295,7 @@ export function EnhancedImageGenerator() {
       }
 
       if (!response.ok || !data.success) {
-        throw new Error(data.error || "Failed to generate image");
+        throw new Error((data as any).error || "Failed to generate image");
       }
 
       if (data.success) {
