@@ -75,7 +75,7 @@ export default function SignUpPage() {
         <CardHeader className="text-center">
           <CardTitle className="text-2xl text-white">Create Your Account</CardTitle>
           <CardDescription className="text-zinc-400">
-            Get started with 1 free AI image generation
+            Get started with 5 free AI image generations
           </CardDescription>
         </CardHeader>
         <CardContent>

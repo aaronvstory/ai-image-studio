@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,6 +35,27 @@ export async function POST(request: NextRequest) {
         { error: error.message },
         { status: 400 }
       )
+    }
+    
+    // Create profile and credits using admin client
+    if (data.user) {
+      const admin = createAdminClient()
+      
+      // Create profile
+      await admin.from('profiles').insert({
+        id: data.user.id,
+        email: data.user.email,
+        credits: 5,
+        free_generations_used: 0
+      }).select().single()
+      
+      // Create credits record
+      await admin.from('credits').insert({
+        user_id: data.user.id,
+        balance: 5
+      })
+      
+      console.log('Profile and credits created for user:', data.user.id)
     }
     
     // Auto sign in after signup

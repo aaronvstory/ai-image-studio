@@ -6,6 +6,7 @@ import { CheckoutModalProvider } from '@/components/checkout-modal-provider'
 import { ErrorBoundary } from '@/components/error-boundary'
 import { Analytics } from '@vercel/analytics/next'
 import { EnvValidator } from '@/components/env-validator'
+import { Toaster } from '@/components/ui/sonner'
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,8 +33,8 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased overscroll-none`}>
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
-          enableSystem
+          defaultTheme="dark"
+          enableSystem={false}
           disableTransitionOnChange
         >
           <CheckoutModalProvider>
@@ -41,6 +42,7 @@ export default function RootLayout({
               <EnvValidator />
               {children}
               <Analytics />
+              <Toaster />
             </ErrorBoundary>
           </CheckoutModalProvider>
         </ThemeProvider>

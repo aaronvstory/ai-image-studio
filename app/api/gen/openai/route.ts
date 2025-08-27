@@ -4,8 +4,11 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { rateLimit } from '@/lib/rate-limit'
 
+// Explicitly set OpenAI configuration to avoid OpenRouter interference
 const openai = new OpenAI({ 
-  apiKey: process.env.OPENAI_API_KEY! 
+  apiKey: process.env.OPENAI_API_KEY!,
+  baseURL: 'https://api.openai.com/v1', // Explicitly set to avoid OpenRouter
+  dangerouslyAllowBrowser: false
 })
 
 type RequestBody =
@@ -101,9 +104,9 @@ export async function POST(req: NextRequest) {
       
     } catch (apiError: any) {
       // Refund credit on API failure
-      await admin.rpc('add_credits', { 
+      await admin.rpc('refund_credit', { 
         p_user_id: user.id, 
-        p_delta: 1 
+        p_amount: 1 
       })
       
       console.error('OpenAI API Error:', apiError)
