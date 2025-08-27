@@ -1,33 +1,57 @@
 'use client'
 import Link from 'next/link'
 import { ChatMaxingIconColoured } from '@/components/logo'
-import { Menu, X } from 'lucide-react'
+import { Menu, X, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import React from 'react'
 import { cn } from '@/lib/utils'
-
-import { UserButton, SignedIn, SignedOut } from "@clerk/nextjs";
-
-import { dark } from '@clerk/themes'
 import { useTheme } from "next-themes"
+import { useSafeUser } from '@/hooks/use-safe-user'
 
 
 
 const menuItems = [
-    { name: 'Features', href: '/dashboard/image-generator' },
+    { name: 'Generate', href: '/' },
     { name: 'Pricing', href: '/checkout' },
-    { name: 'Dashboard', href: '/dashboard' },
 ]
+
+const AuthButtons = () => {
+    const { isLoaded, isSignedIn, user } = useSafeUser();
+    
+    if (!isLoaded) {
+        return null; // Loading state
+    }
+    
+    if (isSignedIn) {
+        return (
+            <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" asChild>
+                    <Link href="/">Generate</Link>
+                </Button>
+                <Button variant="outline" size="icon" className="h-8 w-8">
+                    <User className="h-4 w-4" />
+                </Button>
+            </div>
+        );
+    }
+    
+    return (
+        <>
+            <Button variant="outline" size="sm" asChild>
+                <Link href="/auth/login">Login</Link>
+            </Button>
+            <Button size="sm" asChild>
+                <Link href="/auth/signup">Sign Up</Link>
+            </Button>
+        </>
+    );
+};
 
 export const HeroHeader = () => {
     const [menuState, setMenuState] = React.useState(false)
     const [isScrolled, setIsScrolled] = React.useState(false)
     const { theme } = useTheme()
-
-    const appearance = {
-        baseTheme: theme === "dark" ? dark : undefined,
-    }
 
     React.useEffect(() => {
         const handleScroll = () => {
@@ -91,19 +115,7 @@ export const HeroHeader = () => {
                                 </ul>
                             </div>
                             <div className="flex w-full flex-col space-y-3 sm:flex-row sm:gap-3 sm:space-y-0 md:w-fit">
-                                {/* Temporarily show buttons always for debugging */}
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    asChild>
-                                    <Link href="/sign-in">Login</Link>
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    asChild>
-                                    <Link href="/sign-up">Sign Up</Link>
-                                </Button>
-                                {/* UserButton disabled in demo mode - requires valid Clerk keys */}
+                                <AuthButtons />
                             </div>
                         </div>
                     </div>

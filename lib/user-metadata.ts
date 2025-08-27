@@ -1,4 +1,4 @@
-import { clerkClient } from '@clerk/nextjs/server'
+import { createClient } from '@supabase/supabase-js'
 
 export interface UserMetadata {
   hasPaid?: boolean
@@ -6,26 +6,54 @@ export interface UserMetadata {
   subscriptionTier?: 'pro' | 'basic'
   paymentDate?: string
   freeGenerationsUsed?: number
+  has_paid?: boolean
+  subscription_status?: 'active' | 'inactive'
+  subscription_tier?: 'pro' | 'basic'
+  payment_date?: string
+  free_generations_used?: number
 }
 
 /**
- * Updates user public metadata in Clerk
+ * Creates a Supabase client for server-side operations
+ */
+function getSupabaseClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  return createClient(url, key)
+}
+
+/**
+ * Updates user metadata in Supabase
  */
 export async function updateUserMetadata(userId: string, metadata: Partial<UserMetadata>) {
   try {
-    const clerk = await clerkClient()
-    const user = await clerk.users.getUser(userId)
+    const supabase = getSupabaseClient()
     
-    const updatedMetadata = {
-      ...user.publicMetadata,
-      ...metadata
+    // Get current user
+    const { data: { user }, error: getUserError } = await supabase.auth.admin.getUserById(userId)
+    
+    if (getUserError || !user) {
+      console.error('Error getting user:', getUserError)
+      return { success: false, error: 'User not found' }
     }
     
-    await clerk.users.updateUserMetadata(userId, {
-      publicMetadata: updatedMetadata
-    })
+    // Update user metadata
+    const { data, error } = await supabase.auth.admin.updateUserById(
+      userId,
+      { 
+        user_metadata: {
+          ...user.user_metadata,
+          ...metadata
+        }
+      }
+    )
     
-    return { success: true, metadata: updatedMetadata }
+    if (error) {
+      console.error('Error updating user metadata:', error)
+      return { success: false, error: error.message }
+    }
+    
+    return { success: true, metadata: data.user?.user_metadata }
   } catch (error) {
     console.error('Error updating user metadata:', error)
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
@@ -33,13 +61,19 @@ export async function updateUserMetadata(userId: string, metadata: Partial<UserM
 }
 
 /**
- * Gets user public metadata from Clerk
+ * Gets user metadata from Supabase
  */
 export async function getUserMetadata(userId: string): Promise<UserMetadata> {
   try {
-    const clerk = await clerkClient()
-    const user = await clerk.users.getUser(userId)
-    return user.publicMetadata as UserMetadata
+    const supabase = getSupabaseClient()
+    const { data: { user }, error } = await supabase.auth.admin.getUserById(userId)
+    
+    if (error || !user) {
+      console.error('Error getting user metadata:', error)
+      return {}
+    }
+    
+    return user.user_metadata as UserMetadata
   } catch (error) {
     console.error('Error getting user metadata:', error)
     return {}
@@ -50,23 +84,30 @@ export async function getUserMetadata(userId: string): Promise<UserMetadata> {
  * Increments the free generations used counter
  */
 export async function incrementFreeGenerations(userId: string) {
-  const metadata = await getUserMetadata(userId)
-  const currentCount = metadata.freeGenerationsUsed || 0
-  
-  return updateUserMetadata(userId, {
-    freeGenerationsUsed: currentCount + 1
-  })
+  try {
+    const currentMetadata = await getUserMetadata(userId)
+    const currentCount = currentMetadata.free_generations_used || currentMetadata.freeGenerationsUsed || 0
+    
+    return await updateUserMetadata(userId, {
+      free_generations_used: currentCount + 1,
+      freeGenerationsUsed: currentCount + 1
+    })
+  } catch (error) {
+    console.error('Error incrementing free generations:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
 }
 
 /**
- * Marks user as paid and resets free generation counter
+ * Checks if user has access to generate images
  */
-export async function markUserAsPaid(userId: string, tier: 'pro' | 'basic' = 'pro') {
-  return updateUserMetadata(userId, {
-    hasPaid: true,
-    subscriptionStatus: 'active',
-    subscriptionTier: tier,
-    paymentDate: new Date().toISOString(),
-    freeGenerationsUsed: 0 // Reset counter after payment
-  })
+export async function checkUserAccess(userId: string): Promise<{ hasAccess: boolean; remainingFree: number }> {
+  const metadata = await getUserMetadata(userId)
+  const hasPaid = metadata.has_paid || metadata.hasPaid || false
+  const freeUsed = metadata.free_generations_used || metadata.freeGenerationsUsed || 0
+  
+  return {
+    hasAccess: hasPaid || freeUsed < 1,
+    remainingFree: Math.max(0, 1 - freeUsed)
+  }
 }

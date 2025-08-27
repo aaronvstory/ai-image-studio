@@ -4,26 +4,52 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AI-powered image generation SaaS using OpenAI's DALL-E 3. Built with Next.js 15.3.5, Clerk authentication, TypeScript 5, and shadcn/ui v4. Features payment gating with demo checkout and runs exclusively on port 3500.
+AI-powered image generation SaaS using OpenAI's DALL-E 3 and Google Gemini (text analysis only). Built with Next.js 15.3.5, **Supabase authentication**, TypeScript 5, and shadcn/ui v4. Features a **custom demo payment system** with Luhn card validation. Runs exclusively on port 3500.
 
-## 🚀 Deployment Platform: VERCEL (Required)
+## 🚨 IMPORTANT: Authentication & Payment Architecture
 
-**CRITICAL**: This app MUST be deployed to Vercel, not Netlify. Clerk does not support .netlify.app domains for production instances but fully supports .vercel.app domains.
+**THIS APPLICATION USES:**
+- **Supabase ONLY** for authentication and database
+- **Custom demo payment system** with Luhn validation (NO Stripe, NO Clerk, NO third-party payment processors)
+- **No Clerk anywhere** - Fully removed from codebase
+- Payment is a professional-looking demo placeholder for now
+
+## 🚀 Deployment Platform: Any Platform Supported
+
+**Flexible Deployment**: This app can be deployed to any platform (Vercel, Netlify, Railway, etc.) since we use Supabase authentication which works on any domain without restrictions.
 
 ### Deployment Status
-- **Platform**: Vercel (FREE tier)
-- **URL Format**: `https://your-app-name.vercel.app`
-- **Auto-Deploy**: Connected to GitHub main branch
-- **Demo Mode**: Available as fallback when Clerk not configured
+- **Platform**: Any (Vercel, Netlify, Railway, etc.)
+- **URL Format**: Works with any domain (.vercel.app, .netlify.app, custom domains)
+- **Auto-Deploy**: Configurable with any Git provider
+- **Demo Mode**: Available as fallback when Supabase not configured
 
-### 🚀 Current Implementation Status
-- ✅ **Supabase Authentication**: Migrated from Clerk (works on ANY domain!)
-- ✅ **Auth Pages**: Custom auth pages at `/auth/login` and `/auth/signup`
-- ✅ **Middleware Setup**: Using Supabase middleware for session management
+### Current Implementation Status ✅
+- ✅ **Supabase Authentication**: Full authentication system with session management
+- ✅ **Custom Auth Pages**: `/auth/login` and `/auth/signup`
+- ✅ **User Metadata**: Stores payment status, subscription info, and usage tracking in Supabase
+- ✅ **Demo Payment System**: Professional-looking checkout with Luhn card validation
 - ✅ **Demo Mode**: `NEXT_PUBLIC_DEMO_MODE=true` bypasses auth entirely
-- ✅ **Build Optimized**: Placeholder values prevent build errors
-- ✅ **Domain Flexibility**: Works on .netlify.app, .vercel.app, any custom domain
-- 📚 **Why Supabase**: Clerk doesn't support .netlify.app domains, Supabase has no restrictions
+- ✅ **Gemini Integration**: Text analysis support (note: Gemini doesn't generate images)
+- ✅ **Domain Flexibility**: Works on any domain without restrictions
+
+## ⚠️ Known Issues & Important Notes
+
+### Current State (2025-08-27)
+1. **API Keys Required**: 
+   - OpenAI API key needed for DALL-E 3 functionality
+   - Gemini API key for text analysis (not image generation)
+2. **Gemini Limitation**: Gemini API doesn't generate images, only analyzes them
+   - Using placeholder images for demonstration
+   - Consider labeling as "Image Analysis Only"
+3. **Demo Payment**: Custom implementation with Luhn validation
+   - Professional UI but no actual payment processing
+   - Updates user metadata in Supabase
+
+### Immediate Actions Required
+1. Get valid OpenAI API key for DALL-E 3 functionality
+2. Configure Supabase project with proper credentials
+3. Consider redesigning Gemini integration as analysis-focused
 
 ## Critical Process Management
 
@@ -48,9 +74,10 @@ npm run dev:3500      # Alternative command
 npm run build         # Build for production  
 npm run start         # Start production server on :3500
 
-# DEPLOYMENT TO VERCEL (Required for production)
-npx vercel            # Deploy preview
-npx vercel --prod     # Deploy production
+# Deployment (to any platform)
+npx vercel            # Deploy to Vercel
+npx netlify deploy    # Deploy to Netlify
+# Or use platform-specific deployment commands
 
 # Code Quality
 npm run lint          # ESLint
@@ -73,17 +100,18 @@ npm run workspace:health # Check workspace status
 
 ## Architecture
 
-### Authentication & Authorization
-- **Clerk middleware** protects `/dashboard/*` routes (configured in `middleware.ts`)
-- **Public routes**: `/`, `/sign-in`, `/sign-up`, `/checkout`, `/api/process-payment`
-- **User metadata structure**:
+### Authentication & Authorization (Supabase Only)
+- **Supabase middleware** protects `/dashboard/*` routes (configured in `middleware.ts`)
+- **Public routes**: `/`, `/auth/login`, `/auth/signup`, `/checkout`, `/api/process-payment`
+- **User metadata structure** (stored in Supabase):
 ```typescript
-publicMetadata: {
-  hasPaid: boolean,
-  subscriptionStatus: 'active' | 'inactive',
-  subscriptionTier: 'pro' | 'basic',
-  paymentDate: string,
-  freeGenerationsUsed?: number
+user_metadata: {
+  has_paid?: boolean,
+  subscription_status?: 'active' | 'inactive',
+  subscription_tier?: 'pro' | 'basic',
+  payment_date?: string,
+  free_generations_used?: number,
+  generation_count?: number
 }
 ```
 
@@ -92,10 +120,13 @@ publicMetadata: {
   - Input validation with Zod schema (3-800 char prompt)
   - Rate limiting: 30 req/min (configurable)
   - Returns: Image URL + revised prompt
+- **`/api/transform-image`**: Image transformations
+  - Supports upload mode with GPT-4 Vision analysis
+  - Generate mode for text-to-image
 - **`/api/process-payment`**: Demo payment processing
   - Validates with Luhn algorithm
-  - Updates Clerk user metadata
-- **`/api/transform-image`**: Image transformations
+  - Updates Supabase user metadata
+  - No actual payment processing (demo only)
 
 ### Image Generation Parameters
 ```typescript
@@ -117,30 +148,43 @@ publicMetadata: {
 - **CVA** - Component variants
 - **tailwind-merge** - Use `cn()` utility
 
+## Image Generation Models
+
+### Supported Models
+1. **DALL-E 3** (OpenAI)
+   - Best for creative and artistic images
+   - Sizes: 1024x1024, 1792x1024, 1024x1792
+   - Quality: standard, HD
+   - Style: vivid, natural
+   - Actually generates images
+
+2. **Gemini 2.5 Flash** (Google)
+   - **NOTE: Does NOT generate images**
+   - Text analysis and vision capabilities only
+   - Currently returns placeholder images
+   - Consider removing or repurposing as analysis tool
+
 ## Environment Variables (.env.local)
 
 ```bash
-# REQUIRED
+# REQUIRED - Port Configuration
 PORT=3500
-OPENAI_API_KEY=sk-...
 
-# Clerk Authentication (Current Configuration)
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_YOUR_PUBLISHABLE_KEY_HERE
-CLERK_SECRET_KEY=sk_test_YOUR_SECRET_KEY_HERE
-NEXT_PUBLIC_CLERK_FAPI=https://YOUR_INSTANCE.clerk.accounts.dev
-
-# Clerk URLs
-NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
-NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
-
-# Clerk Redirects
-NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL=/dashboard
-NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL=/dashboard
-NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/dashboard
-NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=/dashboard
-
-# Demo Mode (set to true if Clerk keys don't work)
+# Demo Mode - Set to true to bypass authentication
 NEXT_PUBLIC_DEMO_MODE=false
+
+# OpenAI API (For DALL-E 3 image generation)
+OPENAI_API_KEY=sk-...  # Get from https://platform.openai.com/api-keys
+                       # Required for DALL-E 3 image generation
+                       # Costs: $0.04 per standard image, $0.08 per HD image
+
+# Gemini API (For text analysis - does NOT generate images)
+GEMINI_API_KEY=AIza...  # Get from https://makersuite.google.com/app/apikey
+                        # Note: Gemini doesn't generate images, only analyzes them
+
+# Supabase Configuration (For authentication and user data)
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 
 # Rate Limiting
 RATE_LIMIT_WINDOW_MS=60000
@@ -171,40 +215,42 @@ npx playwright test --debug tests/comprehensive-test.spec.ts
 ## Authentication Flow
 
 ### Current Implementation Status ✅
-- **Fully functional Clerk authentication with hosted pages**
-- **Free generation system working**
-- **Payment gating operational**
-- **Complete documentation**: Authentication implementation completed
+- **Fully functional Supabase authentication**
+- **Custom auth pages** at `/auth/login` and `/auth/signup`
+- **Free generation system** (1 free image)
+- **Demo payment system** with Luhn card validation
+- **User metadata** stored in Supabase
 
 ### User Journey
-1. **New users**: Redirected to `/sign-up` when attempting generation
-2. **Free tier**: 1 free generation tracked in `freeGenerationsUsed` 
-3. **Paywall**: Checkout modal opens after free generation exhausted
+1. **New users**: Redirected to `/auth/signup` when attempting generation
+2. **Free tier**: 1 free generation tracked in `generation_count` in Supabase user metadata
+3. **Paywall**: Custom demo checkout modal opens after free generation exhausted
 4. **Demo cards**: Any Luhn-valid number (4242424242424242, 5555555555554444)
-5. **Post-payment**: Unlimited generations with pro tier
+5. **Post-payment**: Updates `has_paid` in user metadata, enables unlimited generations
 
 ### Key Files
-- **User Metadata Utilities**: `lib/user-metadata.ts`
+- **User Metadata Utilities**: `lib/user-metadata.ts` (Supabase user metadata operations)
 - **Enhanced Generator**: `components/enhanced-image-generator.tsx` 
-- **Auth Pages**: `app/sign-in/[[...sign-in]]/page.tsx`, `app/sign-up/[[...sign-up]]/page.tsx`
-- **API Routes**: `app/api/generate-image/route.ts`, `app/api/process-payment/route.ts`
-- **Tests**: `tests/seamless-auth-flow.spec.ts`
+- **Auth Pages**: `app/auth/login/page.tsx`, `app/auth/signup/page.tsx`
+- **API Routes**: 
+  - `app/api/generate-image/route.ts` (DALL-E 3 generation)
+  - `app/api/transform-image/route.ts` (Image transformations)
+  - `app/api/process-payment/route.ts` (Demo payment processing)
+- **Supabase Client**: `lib/supabase/server.ts`, `lib/supabase/client.ts`
 
-### Demo Login Credentials (ALWAYS USE FOR TESTING)
-- **Email**: demo@example.com
-- **Username**: demo
-- **Phone**: (555) 555-5555  
-- **Password**: demo123
-- **Sign In URL**: https://YOUR_INSTANCE.accounts.dev/sign-in
-- **Sign Up URL**: https://YOUR_INSTANCE.accounts.dev/sign-up
-- **Testing Tool**: Always use Puppeteer MCP for authentication testing
+### Demo Mode Testing
+- **Enable Demo Mode**: Set `NEXT_PUBLIC_DEMO_MODE=true` in `.env.local`
+- **Demo User**: Automatically signed in with demo user data
+- **No Auth Required**: Bypasses all authentication checks
+- **Unlimited Usage**: No payment or generation limits in demo mode
+- **Testing**: Use for development and testing without Supabase setup
 
-### Clerk Configuration Details
-- **Dark Mode**: Default enabled
-- **Primary Color**: #6C47FF
-- **Light Background**: #FFFFFF
-- **Dark Background**: #1F1F23
-- **Appearance**: Respects user system settings with dark as default
+### Supabase Configuration
+- **Auth Pages**: Custom built at `/auth/login` and `/auth/signup`
+- **Session Management**: Server-side with cookies
+- **User Metadata**: Stores payment and usage information
+- **Password Recovery**: Available at `/auth/reset-password` (if implemented)
+- **Email Verification**: Optional, configurable in Supabase dashboard
 
 ## Security Implementation
 
@@ -233,45 +279,47 @@ The `cleanup.js` script runs automatically before `npm run dev`:
 
 **OpenAI errors**: Check API key, rate limits, content policy
 
-**Payment not updating**: Verify Clerk secret key and metadata update
+**Payment not updating**: Check Supabase user metadata update in `updateUserMetadata()` function
 
 **Image URLs expire**: DALL-E URLs valid ~1 hour only
 
 **TypeScript errors**: Use `@/*` imports, strict mode enabled
 
-## Recent Updates (2025-08-26)
+## Recent Updates (2025-08-27)
+
+### Complete Clerk Removal
+- **Removed all Clerk dependencies** from package.json
+- **Deleted Clerk components** and auth pages
+- **Updated all API routes** to use Supabase authentication
+- **Migrated user metadata** to Supabase user_metadata
+- **Updated header** with custom AuthButtons component
+- **Cleaned environment variables** - removed all Clerk configs
 
 ### Authentication Implementation
-- Migrated from custom auth modal to Clerk hosted pages
-- Implemented user metadata utilities for state management
-- Added comprehensive test suite for authentication flow
-- Created comprehensive authentication system
-- Fixed useUser hook import and integration
-
-### Key Files Modified
-- `components/enhanced-image-generator.tsx` - Enabled Clerk hooks
-- `lib/user-metadata.ts` - Created for metadata management
-- `app/api/generate-image/route.ts` - Updated with metadata tracking
-- `app/api/process-payment/route.ts` - Integrated payment status updates
-- `tests/seamless-auth-flow.spec.ts` - Complete E2E test coverage
+- **Supabase-only architecture** - No third-party auth providers
+- **Custom auth pages** at `/auth/login` and `/auth/signup`
+- **User metadata utilities** for managing payment status and usage
+- **Demo payment system** with Luhn validation
+- **useSafeUser hook** for consistent auth state access
 
 ## Production Checklist
 
-- [ ] Remove 49 console.log statements
+- [ ] Remove console.log statements in production code
 - [ ] Set NEXT_PUBLIC_DEMO_MODE=false
 - [ ] Upgrade rate limiting to Redis
-- [ ] Replace demo payment with Stripe/Paddle
+- [ ] Keep demo payment system (professional placeholder)
 - [ ] Configure error tracking (Sentry)
 - [ ] Set up CDN for images
 - [ ] Add database for history/analytics
-- [x] Implement Clerk authentication (COMPLETED)
+- [x] Implement Supabase authentication (COMPLETED)
 - [x] Add free generation system (COMPLETED)
 - [x] Create payment gating (COMPLETED)
+- [x] Remove all Clerk code (COMPLETED)
 
 ## Key Patterns
 
-- **Authentication**: Check via Clerk middleware + user metadata
-- **Payment gating**: Verify `hasPaid` and `subscriptionStatus` 
+- **Authentication**: Check via Supabase session + user metadata
+- **Payment gating**: Verify `has_paid` and `subscription_status` 
 - **Error handling**: Toast notifications with sonner
 - **Loading states**: Loader2 spinner throughout
 - **Dark theme default**: zinc/purple/pink color scheme

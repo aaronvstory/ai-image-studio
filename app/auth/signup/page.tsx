@@ -56,9 +56,9 @@ export default function SignUpPage() {
         setLoading(false)
       } else {
         setSuccess(true)
-        // Redirect to dashboard after successful signup
+        // Redirect to homepage after successful signup
         setTimeout(() => {
-          router.push('/dashboard')
+          router.push('/')
           router.refresh()
         }, 1500)
       }

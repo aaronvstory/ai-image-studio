@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth, currentUser, clerkClient } from "@clerk/nextjs/server";
+import { createClient } from '@/lib/supabase/server';
 import OpenAI from "openai";
 import { cookies } from "next/headers";
 import { z } from "zod";
@@ -37,11 +37,15 @@ async function incrementFreeUsage() {
 
 export async function POST(request: NextRequest) {
   try {
-    // Check if user is authenticated
-    const { userId } = await auth();
+    // Check for demo mode
+    const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
+    
+    // Get Supabase client
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
 
-    // Require authentication for any generation
-    if (!userId) {
+    // Require authentication unless in demo mode
+    if (!isDemoMode && !user) {
       return NextResponse.json(
         {
           error: "Authentication required",
@@ -51,12 +55,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const user = await currentUser();
-    const hasPaid = user?.publicMetadata?.hasPaid === true;
-    const generationCount: number =
-      typeof user?.publicMetadata?.generationCount === "number"
-        ? (user?.publicMetadata?.generationCount as number)
-        : 0;
+    // Get user metadata
+    const hasPaid = isDemoMode ? true : (user?.user_metadata?.has_paid === true);
+    const generationCount: number = isDemoMode ? 0 :
+      (typeof user?.user_metadata?.generation_count === "number"
+        ? user.user_metadata.generation_count
+        : 0);
 
     // Check if user has already used their free generation
     if (!hasPaid && generationCount >= 1) {
@@ -103,7 +107,7 @@ export async function POST(request: NextRequest) {
       console.log("Style:", style);
       console.log("Has Image:", !!image);
       console.log("Prompt:", prompt?.substring(0, 50) + "...");
-      console.log("User ID:", userId || "Anonymous");
+      console.log("User ID:", user?.id || "Anonymous");
       console.log("Has Paid:", hasPaid);
       console.log("====================================");
     }
@@ -175,13 +179,12 @@ export async function POST(request: NextRequest) {
       const revisedPrompt = response.data[0].revised_prompt;
 
       // Update user's generation count if not paid
-      if (!hasPaid && userId) {
-        const client = await clerkClient();
+      if (!hasPaid && !isDemoMode && user) {
         const newCount = (generationCount || 0) + 1;
-        await client.users.updateUserMetadata(userId, {
-          publicMetadata: {
-            ...user?.publicMetadata,
-            generationCount: newCount,
+        await supabase.auth.updateUser({
+          data: {
+            ...user.user_metadata,
+            generation_count: newCount,
           },
         });
       }
@@ -200,7 +203,7 @@ export async function POST(request: NextRequest) {
         revisedPrompt,
         finalPrompt,
         metadata: {
-          userId: userId || "anonymous",
+          userId: user?.id || "anonymous",
           timestamp: new Date().toISOString(),
           mode,
           style,
@@ -254,10 +257,25 @@ export async function POST(request: NextRequest) {
 // GET endpoint to check usage status
 export async function GET(request: NextRequest) {
   try {
-    const { userId } = await auth();
+    // Check for demo mode
+    const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
+    
+    if (isDemoMode) {
+      return NextResponse.json({
+        hasAccess: true,
+        remainingFree: 999,
+        isPaid: true,
+        userId: 'demo-user',
+        requiresAuth: false,
+      });
+    }
+    
+    // Get Supabase client
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
 
     // If not authenticated, return no access
-    if (!userId) {
+    if (!user) {
       return NextResponse.json({
         hasAccess: false,
         remainingFree: 0,
@@ -267,11 +285,10 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const user = await currentUser();
-    const hasPaid = user?.publicMetadata?.hasPaid === true;
+    const hasPaid = user.user_metadata?.has_paid === true;
     const generationCount: number =
-      typeof user?.publicMetadata?.generationCount === "number"
-        ? (user?.publicMetadata?.generationCount as number)
+      typeof user.user_metadata?.generation_count === "number"
+        ? user.user_metadata.generation_count
         : 0;
 
     return NextResponse.json({
@@ -279,7 +296,7 @@ export async function GET(request: NextRequest) {
       generationCount,
       remainingFree: Math.max(0, 1 - generationCount),
       isPaid: hasPaid,
-      userId: userId,
+      userId: user.id,
     });
   } catch (error) {
     if (process.env.NODE_ENV === "development") {

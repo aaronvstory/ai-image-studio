@@ -247,19 +247,36 @@ export async function POST(request: NextRequest) {
 // GET endpoint to check user's access status
 export async function GET(request: NextRequest) {
   try {
-    const { userId } = await auth();
+    // Check for demo mode
+    const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
+    
+    if (isDemoMode) {
+      // In demo mode, always return access
+      return NextResponse.json({
+        hasAccess: true,
+        userId: 'demo-user',
+        subscriptionStatus: 'active',
+        hasPaid: true,
+        freeGenerationsUsed: 0,
+        freeGenerationsRemaining: 999,
+      });
+    }
 
-    if (!userId) {
+    // Get Supabase client
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
       return NextResponse.json({
         hasAccess: false,
         requiresAuth: true,
       });
     }
 
-    const user = await currentUser();
-    const hasPaid = user?.publicMetadata?.hasPaid === true;
-    const subscriptionStatus = user?.publicMetadata?.subscriptionStatus;
-    const freeGenerationsUsed = (user?.publicMetadata?.freeGenerationsUsed as number) || 0;
+    // Get user metadata from Supabase
+    const hasPaid = user.user_metadata?.has_paid === true;
+    const subscriptionStatus = user.user_metadata?.subscription_status || 'inactive';
+    const freeGenerationsUsed = user.user_metadata?.free_generations_used || 0;
     
     // User has access if they've paid OR if they have free generations left
     const hasAccess = (hasPaid && subscriptionStatus === "active") || freeGenerationsUsed < 1;
@@ -267,14 +284,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         hasAccess,
-        userId,
+        userId: user.id,
         subscriptionStatus,
         hasPaid,
         freeGenerationsUsed,
         freeGenerationsRemaining: Math.max(0, 1 - freeGenerationsUsed),
-        metadata: user?.publicMetadata,
+        metadata: user.user_metadata,
       },
-      { headers: rateLimitHeaders(rateLimit(rateLimitKey(userId, null))) }
+      { headers: rateLimitHeaders(rateLimit(rateLimitKey(user.id, null))) }
     );
   } catch (error) {
     if (process.env.NODE_ENV === "development") {

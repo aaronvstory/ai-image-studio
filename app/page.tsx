@@ -1,10 +1,10 @@
 import { ImageGeneratorWithGemini } from "@/components/image-generator-with-gemini";
-import { HeroHeader } from "./header";
-import FooterSection from "./footer";
+import { HeroHeader } from "./(landing)/header";
+import FooterSection from "./(landing)/footer";
 
 export default function Home() {
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-gradient-to-br from-zinc-950 via-purple-950/20 to-zinc-950">
       <HeroHeader />
       <main className="container mx-auto px-4 pt-20">
         <div className="text-center mb-8">

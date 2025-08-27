@@ -16,8 +16,19 @@ export function useSafeUser(): SafeUserHook {
   if (demoMode) {
     return {
       isLoaded: true,
-      isSignedIn: false,
-      user: null,
+      isSignedIn: true,
+      user: {
+        id: 'demo-user',
+        primaryEmailAddress: {
+          emailAddress: 'demo@example.com'
+        },
+        publicMetadata: {
+          hasPaid: true,
+          subscriptionStatus: 'active',
+          subscriptionTier: 'pro',
+          freeGenerationsUsed: 0
+        }
+      },
     };
   }
 

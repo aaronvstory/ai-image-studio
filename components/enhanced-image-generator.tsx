@@ -132,14 +132,14 @@ export function EnhancedImageGenerator() {
     // Check if user is signed in
     if (!isSignedIn) {
       toast.info("Sign up to get your free AI generation!");
-      window.location.href = "/sign-up";
+      window.location.href = "/auth/signup";
       return;
     }
 
     // Check if user has free generations left
-    const metadata: any = user?.publicMetadata || {};
-    const freeGenerationsUsed = (metadata.freeGenerationsUsed as number) || 0;
-    const hasPaid = metadata.hasPaid || false;
+    const metadata: any = user?.user_metadata || {};
+    const freeGenerationsUsed = (metadata.free_generations_used || metadata.freeGenerationsUsed) || 0;
+    const hasPaid = metadata.has_paid || metadata.hasPaid || false;
 
     if (!hasPaid && freeGenerationsUsed >= 1) {
       toast.info(

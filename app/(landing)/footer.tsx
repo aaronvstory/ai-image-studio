@@ -4,11 +4,6 @@ import { ChatMaxingIconColoured } from '@/components/logo'
 import Link from 'next/link'
 
 export default function FooterSection() {
-    const handleAuthClick = (mode: 'sign-up' | 'sign-in') => {
-        window.dispatchEvent(new CustomEvent('openAuthModal', {
-            detail: { mode, trigger: 'general' }
-        }))
-    }
     return (
         <footer className="py-16 md:py-32">
             <div className="mx-auto max-w-5xl px-6">
@@ -24,12 +19,7 @@ export default function FooterSection() {
                     <Link
                         href="/"
                         className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-primary transition-all duration-150 rounded-lg hover:bg-zinc-800/50">
-                        <span>Home</span>
-                    </Link>
-                    <Link
-                        href="/#features"
-                        className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-primary transition-all duration-150 rounded-lg hover:bg-zinc-800/50">
-                        <span>Features</span>
+                        <span>Generate</span>
                     </Link>
                     <Link
                         href="/checkout"
@@ -37,20 +27,15 @@ export default function FooterSection() {
                         <span>Pricing</span>
                     </Link>
                     <Link
-                        href="/dashboard/image-generator"
-                        className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-primary transition-all duration-150 rounded-lg hover:bg-zinc-800/50">
-                        <span>Dashboard</span>
-                    </Link>
-                    <button
-                        onClick={() => handleAuthClick('sign-up')}
+                        href="/auth/signup"
                         className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-primary transition-all duration-150 rounded-lg hover:bg-zinc-800/50">
                         <span>Sign Up</span>
-                    </button>
-                    <button
-                        onClick={() => handleAuthClick('sign-in')}
+                    </Link>
+                    <Link
+                        href="/auth/login"
                         className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-primary transition-all duration-150 rounded-lg hover:bg-zinc-800/50">
                         <span>Login</span>
-                    </button>
+                    </Link>
                 </div>
                 <div className="my-8 flex flex-wrap justify-center gap-6 text-sm">
                     <Link
