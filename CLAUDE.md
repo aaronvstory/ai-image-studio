@@ -4,323 +4,210 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AI-powered image generation SaaS using OpenAI's DALL-E 3 and Google Gemini (text analysis only). Built with Next.js 15.3.5, **Supabase authentication**, TypeScript 5, and shadcn/ui v4. Features a **custom demo payment system** with Luhn card validation. Runs exclusively on port 3500.
+AI Image Generation SaaS using OpenAI DALL-E 3 and Google Gemini. Built with Next.js 15.3.5, TypeScript 5, Tailwind CSS v4, shadcn/ui components, and Supabase authentication. Features demo payment system with Luhn validation. **Port 3500 is mandatory** for all operations.
 
-## 🚨 IMPORTANT: Authentication & Payment Architecture
+## Critical Environment Setup
 
-**THIS APPLICATION USES:**
-- **Supabase ONLY** for authentication and database
-- **Custom demo payment system** with Luhn validation (NO Stripe, NO Clerk, NO third-party payment processors)
-- **No Clerk anywhere** - Fully removed from codebase
-- Payment is a professional-looking demo placeholder for now
-
-## 🚀 Deployment Platform: Any Platform Supported
-
-**Flexible Deployment**: This app can be deployed to any platform (Vercel, Netlify, Railway, etc.) since we use Supabase authentication which works on any domain without restrictions.
-
-### Deployment Status
-- **Platform**: Any (Vercel, Netlify, Railway, etc.)
-- **URL Format**: Works with any domain (.vercel.app, .netlify.app, custom domains)
-- **Auto-Deploy**: Configurable with any Git provider
-- **Demo Mode**: Available as fallback when Supabase not configured
-
-### Current Implementation Status ✅
-- ✅ **Supabase Authentication**: Full authentication system with session management
-- ✅ **Custom Auth Pages**: `/auth/login` and `/auth/signup`
-- ✅ **User Metadata**: Stores payment status, subscription info, and usage tracking in Supabase
-- ✅ **Demo Payment System**: Professional-looking checkout with Luhn card validation
-- ✅ **Demo Mode**: `NEXT_PUBLIC_DEMO_MODE=true` bypasses auth entirely
-- ✅ **Gemini Integration**: Text analysis support (note: Gemini doesn't generate images)
-- ✅ **Domain Flexibility**: Works on any domain without restrictions
-
-## ⚠️ Known Issues & Important Notes
-
-### Current State (2025-08-27)
-1. **API Keys Required**: 
-   - OpenAI API key needed for DALL-E 3 functionality
-   - Gemini API key for text analysis (not image generation)
-2. **Gemini Limitation**: Gemini API doesn't generate images, only analyzes them
-   - Using placeholder images for demonstration
-   - Consider labeling as "Image Analysis Only"
-3. **Demo Payment**: Custom implementation with Luhn validation
-   - Professional UI but no actual payment processing
-   - Updates user metadata in Supabase
-
-### Immediate Actions Required
-1. Get valid OpenAI API key for DALL-E 3 functionality
-2. Configure Supabase project with proper credentials
-3. Consider redesigning Gemini integration as analysis-focused
-
-## Critical Process Management
-
-**DO NOT use `taskkill /F /IM node.exe`** - This kills ALL Node processes system-wide. Instead:
+### OpenRouter Issue (MUST READ)
+**Problem**: System environment variables may route OpenAI calls through OpenRouter.
+**Solution**: Start dev server with clean environment:
 ```bash
-# Find specific PID on port 3500
+# Windows - ALWAYS use this command
+cmd /c "set OPENAI_API_KEY=&& set OPENAI_BASE_URL=&& set OPENAI_MODEL=&& set OPENROUTER_API_KEY=&& npm run dev"
+
+# Alternative if above fails
+powershell -Command "$env:OPENAI_API_KEY=$null; $env:OPENAI_BASE_URL=$null; cd 'C:\claude\gpt-new-image-gen'; npm run dev"
+```
+
+### Port Management
+```bash
+# Find process on port 3500
 netstat -ano | findstr :3500
+
+# Kill specific process (NOT taskkill /F /IM node.exe)
 taskkill /PID <specific_pid> /F
 
-# Or use npm kill-port if installed
+# Or use
 npx kill-port 3500
 ```
 
 ## Development Commands
 
 ```bash
-# Development (port 3500 with automatic cleanup)
-npm run dev           # Runs predev cleanup then starts on :3500
-npm run dev:3500      # Alternative command
+# Development (ALWAYS on port 3500)
+npm run dev              # Auto-runs cleanup, starts on :3500
+npm run dev:3500         # Alternative
 
-# Production
-npm run build         # Build for production  
-npm run start         # Start production server on :3500
-
-# Deployment (to any platform)
-npx vercel            # Deploy to Vercel
-npx netlify deploy    # Deploy to Netlify
-# Or use platform-specific deployment commands
+# Build & Production
+npm run build           # Production build
+npm run start           # Production server on :3500
 
 # Code Quality
-npm run lint          # ESLint
-npm run typecheck     # TypeScript checking
-npm run verify        # Both lint and typecheck
+npm run lint            # ESLint
+npm run typecheck       # TypeScript checking  
+npm run verify          # Both lint and typecheck
 
 # Testing
-npm test                       # Jest unit tests
-npm test:watch                 # Jest watch mode
-npm test:coverage             # Coverage report
-npm run test:playwright       # E2E tests (headless)
-npm run test:playwright:headed # E2E with browser UI
-npm run test:playwright:ui    # Interactive test runner
+npm test                         # Jest unit tests
+npm test:watch                   # Jest watch mode
+npm test:coverage               # Coverage report
+npm run test:playwright         # E2E tests (headless)
+npm run test:playwright:headed  # E2E with browser UI
+npm run test:playwright:ui      # Interactive test runner
 
-# Workspace Management (runs automatically before dev)
-npm run clean         # Clean temporary files
-npm run clean:dry     # Preview cleanup
+# Workspace Management
+npm run clean           # Clean temp files (runs before dev)
+npm run clean:dry       # Preview cleanup
 npm run workspace:health # Check workspace status
 ```
 
-## Architecture
+## Architecture & Data Flow
 
-### Authentication & Authorization (Supabase Only)
-- **Supabase middleware** protects `/dashboard/*` routes (configured in `middleware.ts`)
-- **Public routes**: `/`, `/auth/login`, `/auth/signup`, `/checkout`, `/api/process-payment`
-- **User metadata structure** (stored in Supabase):
+### Authentication Flow (Supabase)
+1. **Middleware** (`middleware.ts`) protects `/dashboard/*` routes
+2. **User Metadata** stored in Supabase:
+   - `has_paid`: Payment status
+   - `subscription_status`: 'active' | 'inactive'
+   - `free_generations_used`: Usage tracking (1 free)
+   - `generation_count`: Total generations
+
+### Image Generation Pipeline
+1. **Request** → API route validates auth + rate limiting
+2. **Free Tier Check** → 1 generation allowed, then paywall
+3. **Model Selection**:
+   - DALL-E 3 → `/api/generate-image`
+   - Gemini/Imagen → `/api/generate-image-gemini`
+4. **Generation** → Returns image URL + metadata
+5. **Usage Update** → Increments user metadata counters
+
+### Payment System (Demo)
+- **Modal Trigger**: `window.dispatchEvent(new CustomEvent("openCheckoutModal"))`
+- **Validation**: Luhn algorithm (accepts 4242424242424242)
+- **Update**: Sets `has_paid=true` in user metadata
+- **No actual processing** - professional demo UI only
+
+## API Endpoints
+
+### `/api/generate-image` (DALL-E 3)
 ```typescript
-user_metadata: {
-  has_paid?: boolean,
-  subscription_status?: 'active' | 'inactive',
-  subscription_tier?: 'pro' | 'basic',
-  payment_date?: string,
-  free_generations_used?: number,
-  generation_count?: number
+POST {
+  prompt: string,       // 3-800 chars
+  size?: string,        // "1024x1024" | "1792x1024" | "1024x1792"
+  quality?: string,     // "standard" | "hd"
+  style?: string        // "vivid" | "natural"
 }
 ```
 
-### API Endpoints
-- **`/api/generate-image`**: DALL-E 3 generation (requires auth + payment)
-  - Input validation with Zod schema (3-800 char prompt)
-  - Rate limiting: 30 req/min (configurable)
-  - Returns: Image URL + revised prompt
-- **`/api/transform-image`**: Image transformations
-  - Supports upload mode with GPT-4 Vision analysis
-  - Generate mode for text-to-image
-- **`/api/process-payment`**: Demo payment processing
-  - Validates with Luhn algorithm
-  - Updates Supabase user metadata
-  - No actual payment processing (demo only)
-
-### Image Generation Parameters
+### `/api/generate-image-gemini` (Gemini/Imagen)
 ```typescript
-{
-  prompt: string,        // 3-800 characters
-  size: '1024x1024' | '1792x1024' | '1024x1792',
-  quality: 'standard' | 'hd',  // hd costs 2x
-  style: 'vivid' | 'natural',
-  model: 'dall-e-3'      // Always dall-e-3
+POST {
+  prompt: string,
+  model?: "gemini-2.5-flash-image" | "imagen-4",
+  numberOfImages?: 1-4,
+  aspectRatio?: "1:1" | "3:4" | "4:3" | "9:16" | "16:9",
+  quality?: "standard" | "ultra" | "fast",
+  editImage?: { imageData: string, mimeType: string }
 }
 ```
 
-### Component Libraries
-- **shadcn/ui v4** (`components/ui/`) - Base components, DO NOT modify
-- **Custom components** (`components/`) - App-specific components
-- **Radix UI** - All interactive primitives
-- **Framer Motion 12** - Animations
-- **Lucide React** + **Tabler Icons** - Icons
-- **CVA** - Component variants
-- **tailwind-merge** - Use `cn()` utility
+### `/api/transform-image` (GPT-4 Vision + DALL-E)
+```typescript
+POST {
+  mode: "upload" | "generate",
+  image?: string,       // base64 data URL
+  prompt?: string,
+  style?: string
+}
+```
 
-## Image Generation Models
+## Key Components
 
-### Supported Models
-1. **DALL-E 3** (OpenAI)
-   - Best for creative and artistic images
-   - Sizes: 1024x1024, 1792x1024, 1024x1792
-   - Quality: standard, HD
-   - Style: vivid, natural
-   - Actually generates images
+### Main Generators
+- `components/enhanced-image-generator.tsx` - Homepage generator with upload/text tabs
+- `components/image-generator-with-gemini.tsx` - Multi-model advanced generator
 
-2. **Gemini 2.5 Flash** (Google)
-   - **NOTE: Does NOT generate images**
-   - Text analysis and vision capabilities only
-   - Currently returns placeholder images
-   - Consider removing or repurposing as analysis tool
+### Core Libraries
+- `lib/supabase/` - Server/client Supabase instances
+- `lib/rate-limit.ts` - In-memory rate limiting (30 req/min)
+- `lib/image-history.ts` - localStorage history management
+- `lib/gemini-service.ts` - Gemini API wrapper
+- `lib/payment-utils.ts` - Luhn validation
 
-## Environment Variables (.env.local)
+### UI Components
+- `components/ui/` - shadcn/ui primitives (DO NOT MODIFY)
+- Dark theme default with zinc/purple/pink palette
+- Framer Motion 12 for animations
+- Responsive breakpoints: sm:640px md:768px lg:1024px xl:1280px
+
+## Environment Variables
 
 ```bash
-# REQUIRED - Port Configuration
-PORT=3500
+# Required
+OPENAI_API_KEY=sk-proj-...         # OpenAI API key
+GEMINI_API_KEY=AIza...             # Google Gemini API key
 
-# Demo Mode - Set to true to bypass authentication
-NEXT_PUBLIC_DEMO_MODE=false
-
-# OpenAI API (For DALL-E 3 image generation)
-OPENAI_API_KEY=sk-...  # Get from https://platform.openai.com/api-keys
-                       # Required for DALL-E 3 image generation
-                       # Costs: $0.04 per standard image, $0.08 per HD image
-
-# Gemini API (For text analysis - does NOT generate images)
-GEMINI_API_KEY=AIza...  # Get from https://makersuite.google.com/app/apikey
-                        # Note: Gemini doesn't generate images, only analyzes them
-
-# Supabase Configuration (For authentication and user data)
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+# Supabase Auth
+NEXT_PUBLIC_SUPABASE_URL=https://...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+
+# Demo Mode
+NEXT_PUBLIC_DEMO_MODE=false        # true bypasses auth
 
 # Rate Limiting
 RATE_LIMIT_WINDOW_MS=60000
 RATE_LIMIT_MAX=30
 ```
 
-## Testing
+## Testing Endpoints
 
-### Running Tests
+- `/test-api` - Comprehensive API testing dashboard
+- `/api/test-openai` - Test OpenAI with SDK
+- `/api/test-openai-simple` - Test OpenAI with fetch
+- `/api/test-gemini` - Test Gemini (text analysis only)
+
+## Common Issues & Solutions
+
+### Next.js "@tailwind" CSS Module Error
 ```bash
-# Jest unit tests
-npm test
-npm test -- lib/__tests__/payment-utils.test.ts  # Single file
-
-# Playwright E2E (ensure dev server running on :3500)
-npx playwright test tests/duck-generation-test.spec.ts
-npx playwright test --debug tests/comprehensive-test.spec.ts
+# Clean and reinstall with legacy deps
+rm -rf .next node_modules package-lock.json
+npm install --legacy-peer-deps
+NODE_ENV=development npm run dev
 ```
 
-### Test Configuration
-- **Playwright**: Chromium, headed mode with 500ms slowMo, screenshots/video on failure
-- **Jest**: ts-jest with jsdom, coverage for app/components/lib directories
+### OpenAI 401/405 Errors
+- Check for OpenRouter environment variables
+- Use clean environment startup command
+- Verify API key starts with `sk-proj-`
 
-### Test Files
-- `lib/__tests__/payment-utils.test.ts` - Payment validation unit tests
-- `tests/*.spec.ts` - Playwright E2E tests
+### Image URLs Expiring
+- DALL-E URLs valid ~1 hour
+- Implement CDN/storage for persistence
 
-## Authentication Flow
+### TypeScript Strict Mode
+- Always use `@/*` imports
+- Strict mode enabled - handle all nulls
 
-### Current Implementation Status ✅
-- **Fully functional Supabase authentication**
-- **Custom auth pages** at `/auth/login` and `/auth/signup`
-- **Free generation system** (1 free image)
-- **Demo payment system** with Luhn card validation
-- **User metadata** stored in Supabase
+## Model Capabilities
 
-### User Journey
-1. **New users**: Redirected to `/auth/signup` when attempting generation
-2. **Free tier**: 1 free generation tracked in `generation_count` in Supabase user metadata
-3. **Paywall**: Custom demo checkout modal opens after free generation exhausted
-4. **Demo cards**: Any Luhn-valid number (4242424242424242, 5555555555554444)
-5. **Post-payment**: Updates `has_paid` in user metadata, enables unlimited generations
+### DALL-E 3 (OpenAI)
+- **Generates**: Creative artistic images
+- **Sizes**: 1024x1024, 1792x1024, 1024x1792
+- **Cost**: $0.04 standard, $0.08 HD
 
-### Key Files
-- **User Metadata Utilities**: `lib/user-metadata.ts` (Supabase user metadata operations)
-- **Enhanced Generator**: `components/enhanced-image-generator.tsx` 
-- **Auth Pages**: `app/auth/login/page.tsx`, `app/auth/signup/page.tsx`
-- **API Routes**: 
-  - `app/api/generate-image/route.ts` (DALL-E 3 generation)
-  - `app/api/transform-image/route.ts` (Image transformations)
-  - `app/api/process-payment/route.ts` (Demo payment processing)
-- **Supabase Client**: `lib/supabase/server.ts`, `lib/supabase/client.ts`
+### Gemini 2.5 Flash (Google)
+- **Does NOT generate images**
+- **Analyzes**: Text descriptions only
+- **Use case**: Prompt analysis, not generation
 
-### Demo Mode Testing
-- **Enable Demo Mode**: Set `NEXT_PUBLIC_DEMO_MODE=true` in `.env.local`
-- **Demo User**: Automatically signed in with demo user data
-- **No Auth Required**: Bypasses all authentication checks
-- **Unlimited Usage**: No payment or generation limits in demo mode
-- **Testing**: Use for development and testing without Supabase setup
+### Imagen 4 (Google)
+- **Generates**: Photorealistic images
+- **Batch**: Up to 4 images
+- **Aspects**: Multiple ratios supported
 
-### Supabase Configuration
-- **Auth Pages**: Custom built at `/auth/login` and `/auth/signup`
-- **Session Management**: Server-side with cookies
-- **User Metadata**: Stores payment and usage information
-- **Password Recovery**: Available at `/auth/reset-password` (if implemented)
-- **Email Verification**: Optional, configurable in Supabase dashboard
+## Deployment Notes
 
-## Security Implementation
-
-### Rate Limiting (`lib/rate-limit.ts`)
-- In-memory storage (upgrade to Redis for production)
-- Headers: X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset
-
-### Input Validation
-- All endpoints use Zod schemas
-- Prompt: 3-800 characters required
-- Size/quality/style enums enforced
-
-### Security Headers (`next.config.ts`)
-- CSP, X-Frame-Options, X-Content-Type-Options, HSTS configured
-
-## Workspace Management
-
-The `cleanup.js` script runs automatically before `npm run dev`:
-- Removes Windows reserved names (nul, con, prn, aux)
-- Cleans temp files (*.tmp, *.log, debug_*)
-- Protected: node_modules/, .git/, .next/static/, public/
-
-## Common Issues
-
-**Port conflicts**: Kill specific process on 3500, not all Node processes
-
-**OpenAI errors**: Check API key, rate limits, content policy
-
-**Payment not updating**: Check Supabase user metadata update in `updateUserMetadata()` function
-
-**Image URLs expire**: DALL-E URLs valid ~1 hour only
-
-**TypeScript errors**: Use `@/*` imports, strict mode enabled
-
-## Recent Updates (2025-08-27)
-
-### Complete Clerk Removal
-- **Removed all Clerk dependencies** from package.json
-- **Deleted Clerk components** and auth pages
-- **Updated all API routes** to use Supabase authentication
-- **Migrated user metadata** to Supabase user_metadata
-- **Updated header** with custom AuthButtons component
-- **Cleaned environment variables** - removed all Clerk configs
-
-### Authentication Implementation
-- **Supabase-only architecture** - No third-party auth providers
-- **Custom auth pages** at `/auth/login` and `/auth/signup`
-- **User metadata utilities** for managing payment status and usage
-- **Demo payment system** with Luhn validation
-- **useSafeUser hook** for consistent auth state access
-
-## Production Checklist
-
-- [ ] Remove console.log statements in production code
-- [ ] Set NEXT_PUBLIC_DEMO_MODE=false
-- [ ] Upgrade rate limiting to Redis
-- [ ] Keep demo payment system (professional placeholder)
-- [ ] Configure error tracking (Sentry)
-- [ ] Set up CDN for images
-- [ ] Add database for history/analytics
-- [x] Implement Supabase authentication (COMPLETED)
-- [x] Add free generation system (COMPLETED)
-- [x] Create payment gating (COMPLETED)
-- [x] Remove all Clerk code (COMPLETED)
-
-## Key Patterns
-
-- **Authentication**: Check via Supabase session + user metadata
-- **Payment gating**: Verify `has_paid` and `subscription_status` 
-- **Error handling**: Toast notifications with sonner
-- **Loading states**: Loader2 spinner throughout
-- **Dark theme default**: zinc/purple/pink color scheme
-- **Responsive breakpoints**: sm:640px md:768px lg:1024px xl:1280px
+- Supports any platform (Vercel, Netlify, Railway)
+- No domain restrictions with Supabase auth
+- Include all environment variables
+- Set `NEXT_PUBLIC_DEMO_MODE=false` for production

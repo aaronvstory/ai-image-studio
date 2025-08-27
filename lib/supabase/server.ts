@@ -1,4 +1,4 @@
-import { createServerClient } from '@supabase/ssr'
+import { createServerClient as createSSRClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
 export async function createClient() {
@@ -8,7 +8,7 @@ export async function createClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key'
 
-  return createServerClient(
+  return createSSRClient(
     url,
     key,
     {
@@ -31,3 +31,6 @@ export async function createClient() {
     }
   )
 }
+
+// Export alias for backward compatibility
+export const createServerClient = createClient

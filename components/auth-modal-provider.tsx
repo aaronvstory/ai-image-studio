@@ -1,8 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { ClerkAuthModal } from './clerk-auth-modal'
-import { useUser } from '@clerk/nextjs'
 
 export function AuthModalProvider({ children }: { children: React.ReactNode }) {
   const [authModalState, setAuthModalState] = useState<{
@@ -31,16 +29,7 @@ export function AuthModalProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  return (
-    <>
-      {children}
-      <ClerkAuthModal
-        mode={authModalState.mode}
-        isOpen={authModalState.isOpen}
-        onClose={() => setAuthModalState(prev => ({ ...prev, isOpen: false }))}
-        onSuccess={authModalState.onSuccess}
-        trigger={authModalState.trigger}
-      />
-    </>
-  )
+  // For now, we're using Supabase auth which handles its own modals
+  // This provider is kept for backward compatibility but doesn't render anything
+  return <>{children}</>
 }

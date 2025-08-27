@@ -1,7 +1,7 @@
 "use client";
 
-import { useUser } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
+import { getUserInfo } from "@/lib/api-client";
 
 interface SubscriptionStatus {
   isLoading: boolean;
@@ -10,13 +10,13 @@ interface SubscriptionStatus {
   subscriptionTier: "free" | "pro" | "basic";
   freeGenerationsUsed: number;
   freeGenerationsRemaining: number;
+  credits: number;
   paymentDate?: string;
 }
 
 const FREE_GENERATION_LIMIT = 1;
 
 export function useSubscription() {
-  const { user, isLoaded } = useUser();
   const [subscriptionStatus, setSubscriptionStatus] =
     useState<SubscriptionStatus>({
       isLoading: true,
@@ -25,115 +25,50 @@ export function useSubscription() {
       subscriptionTier: "free",
       freeGenerationsUsed: 0,
       freeGenerationsRemaining: FREE_GENERATION_LIMIT,
+      credits: 0,
       paymentDate: undefined,
     });
 
   useEffect(() => {
-    if (!isLoaded) {
-      setSubscriptionStatus((prev) => ({ ...prev, isLoading: true }));
-      return;
-    }
+    loadUserData();
+  }, []);
 
-    if (!user) {
+  const loadUserData = async () => {
+    try {
+      const info = await getUserInfo();
+      
       setSubscriptionStatus({
         isLoading: false,
-        hasPaid: false,
-        subscriptionStatus: "inactive",
-        subscriptionTier: "free",
-        freeGenerationsUsed: 0,
-        freeGenerationsRemaining: FREE_GENERATION_LIMIT,
+        hasPaid: info.credits > 5, // More than initial free credits means they've paid
+        subscriptionStatus: info.credits > 0 ? "active" : "inactive",
+        subscriptionTier: info.credits > 5 ? "pro" : "free",
+        freeGenerationsUsed: info.free_generations_used,
+        freeGenerationsRemaining: Math.max(0, FREE_GENERATION_LIMIT - info.free_generations_used),
+        credits: info.credits,
         paymentDate: undefined,
       });
-      return;
+    } catch (error) {
+      console.error("Failed to load user data:", error);
+      setSubscriptionStatus(prev => ({ ...prev, isLoading: false }));
     }
-
-    // Extract subscription data from user metadata
-    const metadata: any = (user as any)?.publicMetadata || {};
-    const freeGenerationsUsed = metadata?.freeGenerationsUsed || 0;
-
-    setSubscriptionStatus({
-      isLoading: false,
-      hasPaid: metadata?.hasPaid === true,
-      subscriptionStatus: metadata?.subscriptionStatus || "inactive",
-      subscriptionTier: metadata?.subscriptionTier || "free",
-      freeGenerationsUsed,
-      freeGenerationsRemaining: Math.max(
-        0,
-        FREE_GENERATION_LIMIT - freeGenerationsUsed
-      ),
-      paymentDate: metadata?.paymentDate,
-    });
-  }, [user, isLoaded]);
+  };
 
   const canGenerate = () => {
-    return (
-      subscriptionStatus.hasPaid ||
-      subscriptionStatus.freeGenerationsRemaining > 0
-    );
+    return subscriptionStatus.credits > 0;
   };
 
   const shouldShowPaywall = () => {
-    return (
-      !subscriptionStatus.hasPaid &&
-      subscriptionStatus.freeGenerationsUsed >= FREE_GENERATION_LIMIT
-    );
+    return subscriptionStatus.credits === 0;
   };
 
   const incrementFreeGeneration = async () => {
-    if (!user || subscriptionStatus.hasPaid) return;
-
-    const newCount = subscriptionStatus.freeGenerationsUsed + 1;
-
-    try {
-      // Update user metadata
-      if (typeof (user as any).update === "function") {
-        await (user as any).update({
-          publicMetadata: {
-            ...(user as any).publicMetadata,
-            freeGenerationsUsed: newCount,
-          },
-        });
-      }
-
-      // Update local state
-      setSubscriptionStatus((prev) => ({
-        ...prev,
-        freeGenerationsUsed: newCount,
-        freeGenerationsRemaining: Math.max(0, FREE_GENERATION_LIMIT - newCount),
-      }));
-    } catch (error) {
-      console.error("Failed to update free generation count:", error);
-    }
+    // This is handled server-side now through the API
+    await loadUserData();
   };
 
   const activateSubscription = async (tier: "pro" | "basic" = "pro") => {
-    if (!user) return;
-
-    try {
-      // Update user metadata
-      if (typeof (user as any).update === "function") {
-        await (user as any).update({
-          publicMetadata: {
-            ...(user as any).publicMetadata,
-            hasPaid: true,
-            subscriptionStatus: "active",
-            subscriptionTier: tier,
-            paymentDate: new Date().toISOString(),
-          },
-        });
-      }
-
-      // Update local state
-      setSubscriptionStatus((prev) => ({
-        ...prev,
-        hasPaid: true,
-        subscriptionStatus: "active",
-        subscriptionTier: tier,
-        paymentDate: new Date().toISOString(),
-      }));
-    } catch (error) {
-      console.error("Failed to activate subscription:", error);
-    }
+    // This is handled through the payment modal and API
+    await loadUserData();
   };
 
   const openCheckoutModal = (
@@ -145,7 +80,7 @@ export function useSubscription() {
           trigger: trigger || "manual",
           onSuccess: () => {
             // Refresh subscription status after successful payment
-            window.location.reload();
+            loadUserData();
           },
         },
       })

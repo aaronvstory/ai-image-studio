@@ -41,6 +41,13 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# Test API files (sensitive testing)
+/app/test-api/
+/app/api/test-api-keys/
+/app/api/test-openai/
+/app/api/test-openai-simple/
+/app/api/test-gemini/
+
 # Windows device names (reserved names that cause issues)
 nul
 con

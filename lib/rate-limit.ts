@@ -15,6 +15,7 @@ const MAX = parseInt(process.env.RATE_LIMIT_MAX || "30", 10); // 30 requests per
 
 export interface RateLimitResult {
   limited: boolean;
+  success?: boolean; // For backward compatibility
   remaining: number;
   reset: number; // epoch ms
   limit: number;
@@ -29,6 +30,7 @@ export function rateLimit(key: string): RateLimitResult {
     store.set(key, bucket);
     return {
       limited: false,
+      success: true,
       remaining: MAX - 1,
       reset: bucket.expiresAt,
       limit: MAX,
@@ -38,6 +40,7 @@ export function rateLimit(key: string): RateLimitResult {
   if (existing.count >= MAX) {
     return {
       limited: true,
+      success: false,
       remaining: 0,
       reset: existing.expiresAt,
       limit: MAX,
@@ -47,6 +50,7 @@ export function rateLimit(key: string): RateLimitResult {
   existing.count += 1;
   return {
     limited: false,
+    success: true,
     remaining: MAX - existing.count,
     reset: existing.expiresAt,
     limit: MAX,
