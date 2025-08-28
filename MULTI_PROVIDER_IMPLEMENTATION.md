@@ -190,10 +190,10 @@ This document describes the implementation of multi-provider AI image generation
 ### Environment Variables
 ```bash
 # OpenAI Configuration
-OPENAI_API_KEY=sk-proj-...
+OPENAI_API_KEY=[YOUR_OPENAI_KEY_HERE]
 
 # Google Gemini Configuration  
-GEMINI_API_KEY=AIza...
+GEMINI_API_KEY=[YOUR_GEMINI_KEY_HERE]
 
 # Supabase Configuration
 NEXT_PUBLIC_SUPABASE_URL=https://...

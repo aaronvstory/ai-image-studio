@@ -143,8 +143,8 @@ POST {
 
 ```bash
 # Required
-OPENAI_API_KEY=sk-proj-...         # OpenAI API key
-GEMINI_API_KEY=AIza...             # Google Gemini API key
+OPENAI_API_KEY=[YOUR_OPENAI_KEY_HERE]  # OpenAI API key
+GEMINI_API_KEY=[YOUR_GEMINI_KEY_HERE]  # Google Gemini API key
 
 # Supabase Auth
 NEXT_PUBLIC_SUPABASE_URL=https://...
@@ -178,7 +178,7 @@ NODE_ENV=development npm run dev
 ### OpenAI 401/405 Errors
 - Check for OpenRouter environment variables
 - Use clean environment startup command
-- Verify API key starts with `sk-proj-`
+- Verify API key is valid
 
 ### Image URLs Expiring
 - DALL-E URLs valid ~1 hour
